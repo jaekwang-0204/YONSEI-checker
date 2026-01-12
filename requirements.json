@@ -1,0 +1,27 @@
+{
+  "2022": {
+    "임상병리학과": {
+      "total_credits": 140,
+      "major_total": 76,
+      "major_required": 42,
+      "major_elective": 34,
+      "advanced_course": 50,
+      "general_base": 22,
+      "english_cert": true,
+      "info_cert": true
+    }
+  },
+  "2023": {
+    "임상병리학과": {
+      "note": "2022년도와 동일하다고 가정 (필요시 수정)",
+      "total_credits": 140,
+      "major_total": 76,
+      "major_required": 42,
+      "major_elective": 34,
+      "advanced_course": 50,
+      "general_base": 22,
+      "english_cert": true,
+      "info_cert": true
+    }
+  }
+}
