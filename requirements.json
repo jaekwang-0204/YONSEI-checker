@@ -6,22 +6,22 @@
       "major_required": 42,
       "major_elective": 34,
       "advanced_course": 50,
-      "general_base": 22,
-      "english_cert": true,
-      "info_cert": true
-    }
-  },
-  "2023": {
-    "임상병리학과": {
-      "note": "2022년도와 동일하다고 가정 (필요시 수정)",
-      "total_credits": 140,
-      "major_total": 76,
-      "major_required": 42,
-      "major_elective": 34,
-      "advanced_course": 50,
-      "general_base": 22,
-      "english_cert": true,
-      "info_cert": true
+      "general_education": {
+        "base_credits": 22,
+        "required_courses": [
+          {"name": "채플", "count": 4, "keywords": ["채플"]},
+          {"name": "글쓰기", "count": 1, "keywords": ["글쓰기"]},
+          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독교의이해"]},
+          {"name": "영어", "count": 2, "keywords": ["교양영어", "영어I", "영어II"]},
+          {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습"]},
+          {"name": "RC(대학학문의세계)", "count": 1, "keywords": ["대학학문의세계", "Residential", "RC진로"]},
+          {"name": "컴퓨팅", "count": 1, "keywords": ["컴퓨팅사고", "컴퓨터"]},
+          {"name": "진로/경력", "count": 2, "keywords": ["진로지도", "경력개발", "RC경력"]}
+        ],
+        "required_areas": ["자연과우주", "생명과환경", "정보와기술"],
+        "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "논리와수리"],
+        "elective_min_count": 5
+      }
     }
   }
 }
