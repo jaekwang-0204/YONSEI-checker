@@ -31,6 +31,7 @@ db = load_requirements()
 
 def normalize_string(s):
     """비교를 위해 한글/영어/숫자만 남기고 공백 등 제거"""
+    if not isinstance(s, str): return ""
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s)
 
 def clean_ocr_line(line):
@@ -259,13 +260,24 @@ if full_text.strip():
     
     final_maj = final_req + final_sel
 
-    # 2. 교양 체크
+    # 2. 교양 체크 (수정된 로직)
     req_fail = []
     for item in gen_rule.get("required_courses", []):
-        if not any(kw in clean_text for kw in item["keywords"]):
-            # OCR된 리스트에서도 한번 더 확인 (띄어쓰기 문제 방지)
-            if not any(kw in normalize_string(c['name']) for c in unique_added):
-                req_fail.append(item['name'])
+        # 1. 텍스트에서 키워드 찾기
+        found_in_text = any(kw in clean_text for kw in item["keywords"])
+        
+        # 2. 텍스트에 없으면 OCR/수동 리스트에서 찾기 (정규화 비교)
+        found_in_list = False
+        if not found_in_text:
+            for course in unique_added:
+                # 과목명 정규화 (공백 등 제거)
+                norm_name = normalize_string(course['name'])
+                if any(kw in norm_name for kw in item["keywords"]):
+                    found_in_list = True
+                    break
+                    
+        if not found_in_text and not found_in_list:
+            req_fail.append(item['name'])
 
     all_area = set(gen_rule.get("required_areas", []) + gen_rule.get("elective_areas", []))
     my_area = [a for a in all_area if a in clean_text]
@@ -278,42 +290,44 @@ if full_text.strip():
         final_total >= criteria['total_credits'],
         final_maj >= criteria['major_total'],
         final_req >= criteria['major_required'],
+        # 3000단위는 OCR로 힘들어서 PDF일때만 체크 (이미지일 땐 0>=50 False 뜨므로 조건 완화 필요하나 일단 유지)
+        (pdf_upper >= criteria['advanced_course'] if pdf_total > 0 else True), 
         not req_fail, not miss_req_area, elec_fail_cnt == 0,
         is_eng, is_info
     ])
     
     st.divider()
-    if final_pass: st.balloons(); st.success("졸업 요건 충족!")
+    if final_pass: st.balloons(); st.success("졸업 가능!")
     else: st.error("졸업 요건 부족")
     
-    # 요약 테이블
-    res_data = [
-        ["총 학점", criteria['total_credits'], int(final_total), "✅" if final_total>=criteria['total_credits'] else "❌"],
-        ["전공 합계", criteria['major_total'], int(final_maj), "✅" if final_maj>=criteria['major_total'] else "❌"],
-        ["전공 필수", criteria['major_required'], int(final_req), "✅" if final_req>=criteria['major_required'] else "❌"],
-    ]
-    st.table(pd.DataFrame(res_data, columns=["구분","기준","내 점수","판정"]))
-
+    c1, c2, c3 = st.columns(3)
+    c1.metric("총 학점", f"{int(final_total)}/{criteria['total_credits']}")
+    c2.metric("전공(필+선)", f"{int(final_maj)}/{criteria['major_total']}")
+    c3.metric("전공필수", f"{int(final_req)}/{criteria['major_required']}")
+    
     if not final_pass:
         st.subheader("🛠️ 보완 필요")
-        if req_fail: st.error(f"필수교양: {', '.join(req_fail)}")
-        if miss_req_area: st.error(f"필수영역: {', '.join(miss_req_area)}")
+        if final_total < criteria['total_credits']: st.warning(f"총점 {int(criteria['total_credits']-final_total)} 부족")
+        if final_req < criteria['major_required']: st.warning(f"전필 {int(criteria['major_required']-final_req)} 부족")
+        if req_fail: st.error(f"필수교양 미이수: {', '.join(req_fail)}")
+        if miss_req_area: st.error(f"필수영역 미이수: {', '.join(miss_req_area)}")
         if elec_fail_cnt: 
             st.error(f"선택영역 {elec_fail_cnt}개 부족")
             with st.expander("추천 강의"):
                 rmap = gen_rule.get("area_courses", {}) or db.get("area_courses", {})
                 for a in (set(gen_rule.get("elective_areas", [])) - set(my_area)):
                     st.write(f"**[{a}]**", ", ".join(rmap.get(a, [])))
-    
-    # OCR 결과 디버깅용
-    with st.expander("📸 이미지 인식 결과 상세 (클릭)"):
+
+    with st.expander("📸 OCR 인식된 과목 목록 확인"):
         if ocr_courses:
             df = pd.DataFrame(ocr_courses)
+            # 중복 제거해서 보여주기
+            df = df.drop_duplicates(subset=['name'])
             st.dataframe(df)
             st.caption(f"인식된 총 학점 합계: {added_total}점")
         else:
             st.info("이미지에서 인식된 과목이 없습니다.")
-    
+            
     with st.expander("📄 전체 분석 텍스트"):
         st.text(clean_text)
 
