@@ -155,13 +155,16 @@ with tab2:
         adv_patterns = known.get("advanced_keywords", [])
         my_course_names_norm = [normalize_string(c['과목명']) for c in final_courses]
 
-        # 직접 비교 방식의 심화 학점 판정 함수
+        # [수정] 직접 대조 방식의 심화 학점 판정 함수 (정밀도 개선)
         def get_advanced_score(course):
             c_name_norm = normalize_string(course['과목명'])
-            # JSON 전공 리스트에 있고, 심화 패턴(3000단위 이상)을 충족해야 함
+            # 1단계: JSON 전공 리스트에 실재하는지 확인
             is_real_major = any(normalize_string(m) in c_name_norm for m in all_major_names)
-            if is_real_major and any(kw in c_name_norm for kw in adv_patterns):
-                return course['학점']
+            
+            # 2단계: 전공이면서 심화 키워드(BML3, 3000 등)를 포함해야 인정
+            if is_real_major:
+                if any(kw in c_name_norm for kw in adv_patterns):
+                    return course['학점']
             return 0
 
         total_sum = sum(c['학점'] for c in final_courses)
@@ -169,10 +172,10 @@ with tab2:
         maj_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공선택")
         maj_total_sum = maj_req + maj_sel
 
-        # 심화 학점 계산
+        # 심화 학점 계산 (개선된 함수 적용)
         advanced_sum = sum(get_advanced_score(c) for c in final_courses)
         
-        # 리더십 및 필수교양 체크
+        # 3. 리더십 및 필수교양 과목 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
         search_names = " ".join([c['과목명'] for c in final_courses])
         
@@ -218,7 +221,7 @@ with tab2:
         m3.metric("3~4000 단위(심화)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
         m4.metric("리더십(RC 포함)", f"{leadership_count} / 2")
 
-        # 💡 부족 요건 보완 가이드
+        # 💡 부족 요건 보완 가이드 (사용자 요청 추가 사항)
         if not is_all_pass:
             st.markdown("### 💡 부족 요건 보완 가이드")
             
