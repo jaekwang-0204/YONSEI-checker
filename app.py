@@ -150,17 +150,29 @@ with tab2:
         gen = criteria.get("general_education", {})
         known = criteria.get("known_courses", {})
         
-        # 1. 학점 계산
+        # 1. 학점 및 기본 분석 데이터 확보
+        all_major_names = known.get('major_required', []) + known.get('major_elective', [])
+        adv_patterns = known.get("advanced_keywords", [])
+        my_course_names_norm = [normalize_string(c['과목명']) for c in final_courses]
+
+        # 직접 비교 방식의 심화 학점 판정 함수
+        def get_advanced_score(course):
+            c_name_norm = normalize_string(course['과목명'])
+            # JSON 전공 리스트에 있고, 심화 패턴(3000단위 이상)을 충족해야 함
+            is_real_major = any(normalize_string(m) in c_name_norm for m in all_major_names)
+            if is_real_major and any(kw in c_name_norm for kw in adv_patterns):
+                return course['학점']
+            return 0
+
         total_sum = sum(c['학점'] for c in final_courses)
         maj_req = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공필수")
         maj_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공선택")
         maj_total_sum = maj_req + maj_sel
 
-        # 2. 3000~4000단위(심화) 학점 계산
-        adv_keywords = known.get("advanced_keywords", [])
-        advanced_sum = sum(c['학점'] for c in final_courses if any(kw in normalize_string(c['과목명']) for kw in adv_keywords))
+        # 심화 학점 계산
+        advanced_sum = sum(get_advanced_score(c) for c in final_courses)
         
-        # 3. 리더십 및 필수교양 과목 체크
+        # 리더십 및 필수교양 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
         search_names = " ".join([c['과목명'] for c in final_courses])
         
@@ -206,20 +218,23 @@ with tab2:
         m3.metric("3~4000 단위(심화)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
         m4.metric("리더십(RC 포함)", f"{leadership_count} / 2")
 
-        # 💡 부족 요건 보완 가이드 (사용자 요청 추가 사항)
+        # 💡 부족 요건 보완 가이드
         if not is_all_pass:
             st.markdown("### 💡 부족 요건 보완 가이드")
             
-            # 1. 심화 학점 부족 시 강의 리스트 출력
+            # 1. 심화 학점 부족 시 강의 리스트 출력 (직접 대조 방식)
             if not pass_advanced:
                 with st.expander("🔴 3000~4000단위(심화) 추천 강의 리스트", expanded=True):
-                    st.info(f"심화 학점이 **{int(criteria['advanced_course'] - advanced_sum)}학점** 부족합니다. 아래 과목 이수를 권장합니다.")
-                    all_major_list = known.get('major_required', []) + known.get('major_elective', [])
-                    adv_recs = [c for c in all_major_list if any(kw in normalize_string(c) for kw in adv_keywords)]
-                    if adv_recs:
-                        st.write(", ".join(sorted(list(set(adv_recs)))))
+                    st.info(f"심화 학점이 **{int(criteria['advanced_course'] - advanced_sum)}학점** 부족합니다. 다음은 이수하지 않은 전공 심화 과목입니다.")
+                    # JSON 전체 전공 중 심화 과목 필터링 후, 내가 듣지 않은 것만 골라냄
+                    adv_candidates = [m for m in all_major_names if any(kw in normalize_string(m) for kw in adv_patterns)]
+                    not_taken_adv = [m for m in adv_candidates if normalize_string(m) not in my_course_names_norm]
+                    
+                    if not_taken_adv:
+                        st.write("✅ **미이수 심화 과목 리스트:**")
+                        st.caption(", ".join(sorted(list(set(not_taken_adv)))))
                     else:
-                        st.write("전공분류표에서 3000단위 이상 과목을 확인하세요.")
+                        st.write("모든 전공 심화 과목을 수강하셨습니다. 학점이 부족하다면 재수강이나 타 학과 심화 인정 과목을 확인하세요.")
 
             # 2. 교양 영역 부족 시 해당 영역 강의 리스트 출력
             if missing_areas:
