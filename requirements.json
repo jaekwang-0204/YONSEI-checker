@@ -16,8 +16,8 @@
     "임상병리학과": {
       "total_credits": 140,
       "major_total": 76,
-      "major_required": 0,
-      "major_elective": 0,
+      "major_required": 42,
+      "major_elective": 34,
       "advanced_course": 50,
       "general_education": {
         "base_credits": 19,
@@ -38,6 +38,10 @@
         "elective_min_count": 4,
         "elective_credit_min": 12
       },
+      "known_courses": {
+        "major_required": ["인체해부학", "조직학", "세포생물학", "생리학", "분자생물학", "혈액학", "면역학", "임상화학및실험(1)", "임상미생물학및실험(1)", "감염병학", "임상생리학(1)", "진단세포학및실험", "병리학", "면역혈액학및실험"],
+        "major_elective": ["의학용어", "생화학", "진단조직학및실험(종합설계)", "미생물학(1)", "미생물학(2)및실험", "세포생리학및실험", "임상바이러스학", "진단혈액학및실험", "임상미생물학및실험(2)", "임상화학및실험(2)", "학부연구(1)", "학부연구(2)", "학부연구(3)", "학부연구(4)", "임상병리현장실습(1)", "임상병리현장실습(2)", "임상병리현장실습(3)", "임상병리현장실습(4)", "MEDICI장기현장실습", "임상생리학(2)", "임상유전학", "병원감염관리학", "분자진단학", "법의학", "체액진단학및실험", "공중보건학", "정도관리학", "의료법규", "혈청학및실험(종합설계)", "임상병리실습(1)", "임상병리실습(2)", "임상병리실습(3)"]
+      },
       "english_cert": true,
       "info_cert": true
     }
@@ -46,8 +50,8 @@
     "임상병리학과": {
       "total_credits": 140,
       "major_total": 76,
-      "major_required": 0,
-      "major_elective": 0,
+      "major_required": 42,
+      "major_elective": 34,
       "advanced_course": 50,
       "general_education": {
         "base_credits": 22,
@@ -68,6 +72,10 @@
         "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "정보와기술"],
         "elective_min_count": 4,
         "elective_credit_min": 12
+      },
+      "known_courses": {
+        "major_required": ["인체해부학", "조직학", "세포생물학", "생리학", "분자생물학", "혈액학", "면역학", "임상화학및실험(1)", "임상미생물학및실험(1)", "감염병학", "임상생리학(1)", "진단세포학및실험", "병리학", "면역혈액학및실험"],
+        "major_elective": ["의학용어", "생화학", "진단조직학및실험(종합설계)", "미생물학(1)", "미생물학(2)및실험", "세포생리학및실험", "임상바이러스학", "진단혈액학및실험", "임상미생물학및실험(2)", "임상화학및실험(2)", "학부연구(1)", "학부연구(2)", "학부연구(3)", "학부연구(4)", "임상병리현장실습(1)", "임상병리현장실습(2)", "임상병리현장실습(3)", "임상병리현장실습(4)", "MEDICI장기현장실습", "임상생리학(2)", "임상유전학", "병원감염관리학", "분자진단학", "법의학", "체액진단학및실험", "공중보건학", "정도관리학", "의료법규", "혈청학및실험(종합설계)", "임상병리실습(1)", "임상병리실습(2)", "임상병리실습(3)"]
       },
       "english_cert": true,
       "info_cert": true
@@ -94,7 +102,12 @@
         ],
         "required_areas": ["자연과우주", "생명과환경", "정보와기술"],
         "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "논리와수리"],
-        "elective_min_count": 5
+        "elective_min_count": 5,
+        "elective_credit_min": 15
+      },
+      "known_courses": {
+        "major_required": ["인체해부학", "조직학", "세포생물학", "생리학", "분자생물학", "혈액학", "면역학", "임상화학및실험(1)", "임상미생물학및실험(1)", "감염병학", "임상생리학(1)", "진단세포학및실험", "병리학", "면역혈액학및실험"],
+        "major_elective": ["의학용어", "생화학", "진단조직학및실험(종합설계)", "미생물학(1)", "미생물학(2)및실험", "세포생리학및실험", "임상바이러스학", "진단혈액학및실험", "임상미생물학및실험(2)", "임상화학및실험(2)", "학부연구(1)", "학부연구(2)", "학부연구(3)", "학부연구(4)", "임상병리현장실습(1)", "임상병리현장실습(2)", "임상병리현장실습(3)", "임상병리현장실습(4)", "MEDICI장기현장실습", "임상생리학(2)", "임상유전학", "병원감염관리학", "분자진단학", "법의학", "체액진단학및실험", "공중보건학", "정도관리학", "의료법규", "혈청학및실험(종합설계)", "임상병리실습(1)", "임상병리실습(2)", "임상병리실습(3)"]
       },
       "english_cert": true,
       "info_cert": true
@@ -112,103 +125,4 @@
         "required_courses": [
           {"name": "채플", "count": 4, "keywords": ["채플"]},
           {"name": "글쓰기", "count": 1, "keywords": ["글쓰기"]},
-          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독교의이해"]},
-          {"name": "영어", "count": 2, "keywords": ["교양영어", "영어I", "영어II"]},
-          {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습"]},
-          {"name": "RC(대학학문의세계)", "count": 1, "keywords": ["대학학문의세계", "Residential", "RC진로"]},
-          {"name": "컴퓨팅", "count": 1, "keywords": ["컴퓨팅사고", "컴퓨터"]},
-          {"name": "진로/경력", "count": 2, "keywords": ["진로지도", "경력개발", "RC경력"]}
-        ],
-        "required_areas": ["자연과우주", "생명과환경", "정보와기술"],
-        "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "논리와수리"],
-        "elective_min_count": 5
-      },
-      "english_cert": true,
-      "info_cert": true
-    }
-  },
-  "2023": {
-    "임상병리학과": {
-      "total_credits": 140,
-      "major_total": 76,
-      "major_required": 42,
-      "major_elective": 34,
-      "advanced_course": 50,
-      "general_education": {
-        "base_credits": 22,
-        "required_courses": [
-          {"name": "채플", "count": 4, "keywords": ["채플"]},
-          {"name": "글쓰기", "count": 1, "keywords": ["글쓰기"]},
-          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독교의이해"]},
-          {"name": "영어", "count": 2, "keywords": ["교양영어", "영어I", "영어II", "영어1", "영어2"]},
-          {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습"]},
-          {"name": "RC(대학학문의세계)", "count": 1, "keywords": ["대학학문의세계", "대학학문", "Residential"]},
-          {"name": "컴퓨팅사고", "count": 1, "keywords": ["컴퓨팅사고"]},
-          {"name": "진로/경력", "count": 2, "keywords": ["진로지도", "경력개발", "커리어"]}
-        ],
-        "required_areas": ["자연과우주", "생명과환경", "정보와기술"],
-        "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "논리와수리"],
-        "elective_min_count": 5,
-        "elective_credit_min": 15
-      },
-      "english_cert": true,
-      "info_cert": true
-    }
-  },
-  "2024": {
-    "임상병리학과": {
-      "total_credits": 140,
-      "major_total": 76,
-      "major_required": 42,
-      "major_elective": 34,
-      "advanced_course": 50,
-      "general_education": {
-        "base_credits": 22,
-        "required_courses": [
-          {"name": "채플", "count": 4, "keywords": ["채플"]},
-          {"name": "글쓰기", "count": 1, "keywords": ["글쓰기"]},
-          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독교의이해"]},
-          {"name": "영어", "count": 2, "keywords": ["교양영어", "영어I", "영어II", "영어1", "영어2"]},
-          {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습"]},
-          {"name": "RC(대학학문의세계)", "count": 1, "keywords": ["대학학문의세계", "대학학문", "Residential"]},
-          {"name": "컴퓨팅사고", "count": 1, "keywords": ["컴퓨팅사고", "컴퓨팅", "CT"]},
-          {"name": "진로/경력", "count": 2, "keywords": ["진로지도", "경력개발", "커리어"]}
-        ],
-        "required_areas": ["자연과우주", "생명과환경", "정보와기술"],
-        "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "논리와수리"],
-        "elective_min_count": 5,
-        "elective_credit_min": 15
-      },
-      "english_cert": true,
-      "info_cert": true
-    }
-  },
-  "2025": {
-    "임상병리학과": {
-      "total_credits": 140,
-      "major_total": 76,
-      "major_required": 42,
-      "major_elective": 34,
-      "advanced_course": 50,
-      "general_education": {
-        "base_credits": 22,
-        "required_courses": [
-          {"name": "채플", "count": 4, "keywords": ["채플"]},
-          {"name": "글쓰기", "count": 1, "keywords": ["글쓰기"]},
-          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독교의이해"]},
-          {"name": "영어", "count": 2, "keywords": ["교양영어", "영어I", "영어II", "영어1", "영어2", "대학영어"]},
-          {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습"]},
-          {"name": "RC(대학학문의세계)", "count": 1, "keywords": ["대학학문의세계", "대학학문", "Residential"]},
-          {"name": "컴퓨팅/AI", "count": 1, "keywords": ["컴퓨팅사고", "컴퓨팅", "AI", "인공지능"]},
-          {"name": "진로/경력", "count": 2, "keywords": ["진로지도", "경력개발", "커리어"]}
-        ],
-        "required_areas": ["자연과우주", "생명과환경", "정보와기술"],
-        "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "논리와수리"],
-        "elective_min_count": 5,
-        "elective_credit_min": 15
-      },
-      "english_cert": true,
-      "info_cert": true
-    }
-  }
-}
+          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독
