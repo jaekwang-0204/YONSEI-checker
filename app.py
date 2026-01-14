@@ -7,7 +7,7 @@ import pytesseract
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
 
-# Tesseract 경로 (필요시 주석 해제)
+# Tesseract 경로 (로컬 실행 시 필요하면 주석 해제)
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 st.set_page_config(page_title="졸업요건 진단기 (Ultimate)", page_icon="🎓", layout="wide")
@@ -33,7 +33,7 @@ def normalize_string(s):
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s)
 
 def clean_ocr_line(line):
-    # 노이즈 제거
+    # 노이즈 제거 (특수문자 등)
     line = re.sub(r'[~@#$%\^&*_\-=|;:"<>,.?/\[\]\{\}]', ' ', line)
     return line.strip()
 
@@ -80,7 +80,7 @@ def ocr_image_parsing(image_file, year, dept):
             line = clean_ocr_line(line)
             if not line: continue
             
-            # 헤더 감지
+            # 헤더 감지 (과목명, 학점 등이 나오면 시작)
             if not start_parsing:
                 if any(k in line for k in ["과목명", "학점", "성적", "전공", "등급", "이수"]):
                     start_parsing = True
@@ -91,7 +91,7 @@ def ocr_image_parsing(image_file, year, dept):
                 continue
 
             # 패턴: (과목명) ... (학점 숫자: 0.5 ~ 9.0 허용)
-            # 수정된 정규식: 0.5도 잡을 수 있게 (\d+(?:\.\d+)?) 사용
+            # 0.5 학점 인식을 위해 (\d+(?:\.\d+)?) 사용
             match = re.search(r'^(.*?)\s+(\d+(?:\.\d+)?)(?:\s+.*)?$', line)
             
             if match:
@@ -99,14 +99,12 @@ def ocr_image_parsing(image_file, year, dept):
                 credit = float(match.group(2))
                 
                 # [강력 필터] 노이즈 제거
-                # 1. 이름이 너무 짧거나(1글자), 숫자로만 구성됨
                 if len(raw_name) < 2 or raw_name.isdigit(): continue
-                # 2. 한글/영어가 없는 특수문자 덩어리
                 if not re.search(r'[가-힣a-zA-Z]', raw_name): continue
-                # 3. 성적(A, B, P)이나 잡음이 이름으로 인식된 경우 제외
-                noise_keywords = ["At", "Bt", "Ap", "Ss", "BO", "Bo", "Pass", "P", "F", "NP"]
+                
+                noise_keywords = ["At", "Bt", "Ap", "Ss", "BO", "Bo", "Pass", "P", "F", "NP", "Total"]
                 if raw_name in noise_keywords: continue
-                # 4. 이름이 3글자 이하 영어인데 소문자가 섞여있으면 잡음일 확률 높음 (예: "At a")
+                # 3글자 이하 영어인데 소문자가 섞여있으면 잡음일 확률 높음
                 if len(raw_name) <= 3 and re.search(r'[a-z]', raw_name): continue
 
                 # 분류
@@ -173,8 +171,6 @@ with tab2:
     img_files = st.file_uploader("이미지 파일", type=['png','jpg'], accept_multiple_files=True)
     
     if img_files:
-        # 이미지가 업로드되면 OCR 실행 (버튼 없이 자동 실행하되 중복 방지 필요)
-        # 여기서는 매번 실행되지 않도록 버튼으로 제어하거나, 세션 스테이트 관리
         if st.button("🔍 이미지 분석 실행 (클릭)"):
             with st.spinner("이미지 정밀 분석 중..."):
                 temp_results = []
@@ -182,7 +178,7 @@ with tab2:
                     _, parsed = ocr_image_parsing(img, selected_year, selected_dept)
                     temp_results.extend(parsed)
                 
-                # 기존 데이터에 추가 (중복 방지 로직은 에디터에서 사용자가 보고 삭제하게 유도)
+                # 기존 데이터에 추가 (중복제거는 하지 않음, 사용자가 직접 수정)
                 st.session_state.ocr_results = temp_results
                 st.success(f"{len(temp_results)}개 과목 인식 완료! '과목 수정/추가' 탭에서 확인하세요.")
 
@@ -191,10 +187,11 @@ with tab3:
     st.markdown("### 📝 수강 과목 관리")
     st.caption("이미지 인식 결과가 정확하지 않다면 여기서 직접 수정, 추가, 삭제하세요. **이 데이터로 최종 진단합니다.**")
     
-    # 데이터프레임 생성 (초기 데이터가 없으면 빈 프레임)
+    # 데이터프레임 생성
     if st.session_state.ocr_results:
         df_input = pd.DataFrame(st.session_state.ocr_results)
     else:
+        # 데이터가 없어도 컬럼은 있어야 에디터가 정상 작동함
         df_input = pd.DataFrame(columns=["과목명", "학점", "이수구분"])
 
     # st.data_editor로 편집 가능한 테이블 생성
@@ -227,7 +224,7 @@ st.divider()
 
 # 분석 대상 데이터: PDF 텍스트 + 에디터에서 수정된 데이터프레임
 final_courses = edited_df.to_dict('records')
-manual_text = "\n".join([c['과목명'] for c in final_courses]) # 교양 키워드 검색용 텍스트
+manual_text = "\n".join([c['과목명'] for c in final_courses])
 full_text = extracted_text_pdf + "\n" + manual_text
 
 if full_text.strip():
@@ -242,21 +239,15 @@ if full_text.strip():
     pdf_sel = float((re.search(r'전공선택[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
     
     # (B) 에디터 데이터 합산
-    # unique_courses 제거함 (사용자가 에디터에서 중복을 직접 관리한다고 가정)
     add_total = sum(c['학점'] for c in final_courses)
     add_req = sum(c['학점'] for c in final_courses if c['이수구분'] == '전공필수')
     add_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == '전공선택')
     
-    # (C) 최종 합산 (PDF가 있으면 PDF 우선 + 에디터 추가분은 없음으로 가정하거나 단순 합산)
-    # 로직 수정: PDF가 있으면 PDF 점수 사용 (이미지 데이터 무시). PDF가 없으면 에디터 점수 사용.
+    # (C) 최종 합산 (PDF 우선)
     if pdf_total > 0:
         final_total = pdf_total
         final_req = pdf_req
         final_sel = pdf_sel
-        # 주의: PDF와 이미지를 섞어 쓰는 경우 중복 계산될 수 있음.
-        # 사용자가 에디터를 통해 데이터를 넣었다면, PDF 자동인식보다는 에디터 데이터를 우선시하는게 낫거나
-        # 혹은 PDF 점수에 '수동으로 추가한 것'만 더해야 하는데, 구분이 어려움.
-        # -> 여기서는 PDF가 인식되면 PDF 점수를 신뢰하고, PDF가 없으면 에디터 점수를 씁니다.
     else:
         final_total = add_total
         final_req = add_req
@@ -311,8 +302,9 @@ if full_text.strip():
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("총 학점", f"{int(final_total)} / {criteria['total_credits']}")
     m2.metric("전공 합계", f"{int(final_maj)} / {criteria['major_total']}")
+    # 여기가 수정된 부분입니다 (m3, m4 완성)
     m3.metric("전공 필수", f"{int(final_req)} / {criteria['major_required']}")
-    m4.metric("전공 선택", f"{int(final_sel)} / {criteria['major_elective']}")
+    m4.metric("전공 선택", f"{int(final_sel)} / {criteria.get('major_elective', 0)}")
 
     if not is_pass:
         st.subheader("🛠️ 보완 필요 사항")
@@ -320,8 +312,8 @@ if full_text.strip():
             st.warning(f"총점 {int(criteria['total_credits']-final_total)}학점 부족")
         if final_req < criteria['major_required']: 
             st.warning(f"전공필수 {int(criteria['major_required']-final_req)}학점 부족")
-        if final_sel < criteria['major_elective']:
-             st.info(f"(참고) 전공선택 {int(criteria['major_elective']-final_sel)}학점 부족")
+        if final_sel < criteria.get('major_elective', 0):
+             st.info(f"(참고) 전공선택 {int(criteria.get('major_elective', 0)-final_sel)}학점 부족")
         
         if req_fail: st.error(f"필수교양 미이수: {', '.join(req_fail)}")
         if miss_req_area: st.error(f"필수영역 미이수: {', '.join(miss_req_area)}")
