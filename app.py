@@ -311,4 +311,21 @@ if full_text.strip():
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("총 학점", f"{int(final_total)} / {criteria['total_credits']}")
     m2.metric("전공 합계", f"{int(final_maj)} / {criteria['major_total']}")
-    m3
+    m3.metric("전공 필수", f"{int(final_req)} / {criteria['major_required']}")
+    m4.metric("전공 선택", f"{int(final_sel)} / {criteria['major_elective']}")
+
+    if not is_pass:
+        st.subheader("🛠️ 보완 필요 사항")
+        if final_total < criteria['total_credits']: 
+            st.warning(f"총점 {int(criteria['total_credits']-final_total)}학점 부족")
+        if final_req < criteria['major_required']: 
+            st.warning(f"전공필수 {int(criteria['major_required']-final_req)}학점 부족")
+        if final_sel < criteria['major_elective']:
+             st.info(f"(참고) 전공선택 {int(criteria['major_elective']-final_sel)}학점 부족")
+        
+        if req_fail: st.error(f"필수교양 미이수: {', '.join(req_fail)}")
+        if miss_req_area: st.error(f"필수영역 미이수: {', '.join(miss_req_area)}")
+        if elec_fail: st.error(f"선택영역 {elec_fail}개 부족")
+
+else:
+    st.info("👆 PDF를 업로드하거나 이미지를 분석한 후 '과목 수정/추가' 탭을 확인하세요.")
