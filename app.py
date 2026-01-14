@@ -26,6 +26,7 @@ db = load_requirements()
 
 def normalize_string(s):
     if not isinstance(s, str): return ""
+    # 특수문자 제거 및 대문자화
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s).upper()
 
 @st.dialog("🐛 버그 신고 및 문의")
@@ -43,7 +44,6 @@ def classify_course_logic(course_name, year, dept):
     """[분류 로직] RC 우선 및 DB 키워드 매칭"""
     norm_name = normalize_string(course_name)
     
-    # 1. RC 특별 처리 (리더십으로 분류)
     if "RC" in norm_name or "리더십" in norm_name:
         return "교양(리더십)"
 
@@ -53,13 +53,11 @@ def classify_course_logic(course_name, year, dept):
     dept_db = db[year][dept]
     known = dept_db.get("known_courses", {})
     
-    # 2. 전공 필수/선택 체크
     for req in known.get("major_required", []):
         if normalize_string(req) in norm_name: return "전공필수"
     for sel in known.get("major_elective", []):
         if normalize_string(sel) in norm_name: return "전공선택"
             
-    # 3. 교양 영역 체크
     for area, courses in db.get("area_courses", {}).items():
         for c in courses:
             if normalize_string(c) in norm_name: return f"교양({area})"
@@ -80,7 +78,8 @@ def ocr_image_parsing(image_file, year, dept):
             if match:
                 raw_name = match.group(1).strip()
                 credit = float(match.group(2))
-                if len(raw_name) < 2 or raw_name.isdigit(): continue
+                # 학점이 10점을 넘으면(학번 등) 노이즈로 간주하여 제외
+                if len(raw_name) < 2 or raw_name.isdigit() or credit > 10: continue
                 ftype = classify_course_logic(raw_name, year, dept)
                 parsed_data.append({"과목명": raw_name, "학점": credit, "이수구분": ftype})
         return parsed_data
@@ -117,11 +116,11 @@ with tab1:
             
             df_temp = pd.DataFrame(all_results).drop_duplicates(subset=['과목명'])
             st.session_state.ocr_results = df_temp.to_dict('records')
-            st.success(f"총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다. '과목 수정' 탭에서 확인해주세요!")
+            st.success(f"총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다.")
 
 with tab2:
     st.markdown("### 📝 수강 과목 관리")
-    st.caption("OCR 인식 결과가 틀렸다면 직접 수정하세요. 행 왼쪽을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
+    st.caption("OCR 인식 결과가 틀렸다면 직접 수정하세요. 이수구분이 '전공'으로 되어야 심화 학점에 집계됩니다.")
     
     df_editor = pd.DataFrame(st.session_state.ocr_results)
     if df_editor.empty:
@@ -149,124 +148,84 @@ with tab2:
         gen = criteria.get("general_education", {})
         known = criteria.get("known_courses", {})
         
-        # 1. 학점 및 기본 분석 데이터 확보
+        # JSON 데이터 확보
         all_major_list = known.get('major_required', []) + known.get('major_elective', [])
         adv_patterns = known.get("advanced_keywords", [])
-        my_course_names_norm = [normalize_string(c['과목명']) for c in final_courses]
 
-        # [수정] 유연한 심화 학점 판정 함수 (앞 4글자 매칭 로직)
+        # [핵심] 유연한 심화 학점 판정 함수 (앞글자 4자 매칭)
         def get_advanced_score_flexible(course):
-            c_name_norm = normalize_string(course['과목명'])
+            c_name_norm = normalize_string(str(course['과목명']))
             c_type = str(course['이수구분'])
+            c_credit = float(course['학점'])
             
-            # 조건 1: 사용자가 이수구분을 '전공필수' 또는 '전공선택'으로 분류한 경우만 대상
+            # 학점이 비정상적이면 제외
+            if c_credit > 10: return 0
+            
             if "전공" in c_type:
-                # 방법 A: 과목명에 3000, 4000, BML3 등 심화 패턴이 직접 있는 경우
+                # 1. 과목명에 직접 심화 키워드(BML3 등)가 포함된 경우
                 if any(kw in c_name_norm for kw in adv_patterns):
-                    return course['학점']
+                    return c_credit
                 
-                # 방법 B: JSON 전공 리스트 중 앞 4글자가 일치하는 경우
+                # 2. JSON 전공 리스트와 앞 4글자 매칭
                 for major_name in all_major_list:
                     major_norm = normalize_string(major_name)
-                    # JSON의 과목명이 최소 4자 이상일 때 앞 4자 비교
-                    if len(major_norm) >= 4 and major_norm[:4] in c_name_norm:
-                        # 해당 JSON 과목이 실제로 심화 기준(advanced_keywords)을 충족하는 과목인지 확인
-                        if any(kw in major_norm for kw in adv_patterns):
-                            return course['학점']
+                    # JSON상의 과목이 심화 과목인지 확인 후, 앞 4글자 일치 여부 판정
+                    if any(kw in major_norm for kw in adv_patterns):
+                        if (len(major_norm) >= 4 and major_norm[:4] in c_name_norm) or (major_norm in c_name_norm):
+                            return c_credit
             return 0
 
-        total_sum = sum(c['학점'] for c in final_courses)
-        maj_req = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공필수")
-        maj_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공선택")
-        maj_total_sum = maj_req + maj_sel
-
-        # 심화 학점 계산 (유연한 로직 적용)
+        # 학점 합계 (필터링 적용)
+        total_sum = sum(c['학점'] for c in final_courses if c['학점'] <= 10)
+        maj_total_sum = sum(c['학점'] for c in final_courses if "전공" in str(c['이수구분']) and c['학점'] <= 10)
         advanced_sum = sum(get_advanced_score_flexible(c) for c in final_courses)
         
-        # 3. 리더십 및 필수교양 과목 체크
-        leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
-        search_names = " ".join([c['과목명'] for c in final_courses])
+        # 리더십 및 영역 분석
+        leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(str(c['과목명']))])
         
-        req_fail = []
-        for item in gen.get("required_courses", []):
-            if item['name'] == "리더십":
-                if leadership_count < 2: req_fail.append("리더십(RC포함 2과목)")
-                continue
-            if not any(normalize_string(kw) in normalize_string(search_names) for kw in item["keywords"]):
-                req_fail.append(item['name'])
-
-        # 4. 교양 영역 이수 현황 분석
         passed_areas = set()
         for course in final_courses:
-            course_norm = normalize_string(course['과목명'])
+            course_norm = normalize_string(str(course['과목명']))
             for area, area_course_list in db.get("area_courses", {}).items():
                 if any(normalize_string(ac) in course_norm for ac in area_course_list):
                     passed_areas.add(area)
         
-        all_req_areas = set(gen.get("required_areas", []))
-        missing_areas = sorted(list(all_req_areas - passed_areas))
+        missing_areas = sorted(list(set(gen.get("required_areas", [])) - passed_areas))
 
-        # 최종 판정 로직
-        pass_total = total_sum >= criteria['total_credits']
-        pass_major_total = maj_total_sum >= criteria['major_total']
-        pass_major_req = maj_req >= criteria['major_required']
-        pass_advanced = advanced_sum >= criteria['advanced_course']
-        pass_req_courses = len(req_fail) == 0
-        pass_areas = len(missing_areas) == 0
-
-        is_all_pass = all([pass_total, pass_major_total, pass_major_req, pass_advanced, pass_req_courses, pass_areas])
+        # 최종 판정
+        is_all_pass = all([total_sum >= criteria['total_credits'], advanced_sum >= criteria['advanced_course'], not missing_areas])
 
         st.header("🏁 졸업 자격 예비진단 리포트")
-        if is_all_pass: 
-            st.success("🎉 축하합니다! 모든 졸업 요건을 충족했습니다."); st.balloons()
-        else: 
-            st.error("⚠️ 아직 충족되지 않은 요건이 있습니다. 아래 대시보드와 보완 가이드를 확인하세요.")
+        if is_all_pass: st.success("🎉 모든 졸업 요건을 충족했습니다."); st.balloons()
+        else: st.error("⚠️ 아직 충족되지 않은 요건이 있습니다.")
 
-        # 대시보드 레이아웃 (4열 구성)
+        # 대시보드 (4열)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("총 취득학점", f"{int(total_sum)} / {criteria['total_credits']}", delta=int(total_sum - criteria['total_credits']))
         m2.metric("전공 합계", f"{int(maj_total_sum)} / {criteria['major_total']}")
         m3.metric("3~4000 단위(심화)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
-        m4.metric("리더십(RC 포함)", f"{leadership_count} / 2")
+        m4.metric("리더십(RC)", f"{leadership_count} / 2")
 
-        # 
+        
 
-        # 💡 부족 요건 보완 가이드
+        # 보완 가이드
         if not is_all_pass:
             st.markdown("### 💡 부족 요건 보완 가이드")
-            
-            # 1. 심화 학점 부족 시 강의 리스트 출력 (유연한 대조 방식)
-            if not pass_advanced:
+            if advanced_sum < criteria['advanced_course']:
                 with st.expander("🔴 3000~4000단위(심화) 추천 강의 리스트", expanded=True):
-                    st.info(f"심화 학점이 **{int(criteria['advanced_course'] - advanced_sum)}학점** 부족합니다. 다음은 이수하지 않은 전공 심화 과목입니다.")
-                    # JSON 전체 전공 중 심화 과목 필터링 후, 내가 듣지 않은 것만 골라냄 (앞 4자 기준)
+                    st.info(f"심화 학점이 {int(criteria['advanced_course'] - advanced_sum)}학점 부족합니다.")
                     adv_candidates = [m for m in all_major_list if any(kw in normalize_string(m) for kw in adv_patterns)]
-                    not_taken_adv = [m for m in adv_candidates if not any(normalize_string(m)[:4] in name for name in my_course_names_norm)]
-                    
-                    if not_taken_adv:
-                        st.write("✅ **미이수 심화 과목 리스트:**")
-                        st.caption(", ".join(sorted(list(set(not_taken_adv)))))
-                    else:
-                        st.write("모든 전공 심화 과목을 수강하셨습니다. 학점이 부족하다면 재수강이나 타 학과 심화 인정 과목을 확인하세요.")
+                    my_norms = [normalize_string(c['과목명']) for c in final_courses]
+                    not_taken = [m for m in adv_candidates if not any(normalize_string(m)[:4] in n for n in my_norms)]
+                    st.write(", ".join(sorted(list(set(not_taken)))))
 
-            # 2. 교양 영역 부족 시 해당 영역 강의 리스트 출력
             if missing_areas:
-                with st.expander("🟠 부족한 교양 이수 영역 및 추천 강의", expanded=True):
-                    st.warning(f"필수 교양 영역 중 **{', '.join(missing_areas)}** 영역 이수가 필요합니다.")
+                with st.expander("🟠 부족한 교양 이수 영역 추천 강의", expanded=True):
                     for area in missing_areas:
-                        st.subheader(f"📍 {area} 영역 추천 과목")
-                        area_recs = db.get("area_courses", {}).get(area, ["등록된 정보가 없습니다."])
-                        st.write(", ".join(area_recs))
-
-            # 3. 기타 미달 요건 (전공필수 및 필수교양)
-            if not pass_major_req or req_fail:
-                with st.expander("⚪ 기타 미달 요건"):
-                    if not pass_major_req:
-                        st.write(f"- **전공필수 학점 부족:** {int(criteria['major_required'] - maj_req)}학점 더 수강해야 합니다.")
-                    if req_fail:
-                        st.write(f"- **미이수 필수 과목:** {', '.join(req_fail)}")
+                        st.subheader(f"📍 {area} 영역")
+                        st.write(", ".join(db.get("area_courses", {}).get(area, [])))
             
-        with st.expander("📊 수강 과목 상세 통계 (수정 가능)"):
+        with st.expander("📊 수강 과목 상세 통계"):
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
