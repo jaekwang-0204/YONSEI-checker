@@ -12,6 +12,38 @@
     "정보와기술": ["파이썬프로그래밍", "실용드론", "데이터프로그래밍", "웹응용기초", "컴퓨터프로그래밍", "빅데이터와인공지능", "드론개론", "인공지능개론"],
     "체육과건강": ["건강과운동", "응급처치", "캠핑", "배드민턴", "스쿼시", "초급골프", "하계보드스포츠", "탁구", "체력육성", "초급테니스", "야구", "수영", "스쿠버다이빙", "농구", "등산", "아웃도어스포츠", "풋살", "현대사회와스포츠", "피클볼", "필라테스", 
   },
+  
+  "2019": {
+    "임상병리학과": {
+      "total_credits": 140,
+      "major_total": 76,
+      "major_required": 0, 
+      "major_elective": 0,
+      "advanced_course": 50,
+      "general_education": {
+        "base_credits": 19,
+        "required_courses": [
+          {"name": "채플", "count": 4, "keywords": ["채플"]},
+          {"name": "글쓰기", "count": 1, "keywords": ["글쓰기"]},
+          {"name": "기독교", "count": 1, "keywords": ["기독교", "기독교의이해"]},
+          {"name": "영어", "count": 2, "keywords": ["교양영어", "영어I", "영어II", "영어1", "영어2"]},
+          {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습"]},
+          {"name": "RC", "count": 3, "keywords": ["Residential", "RC진로", "RC커리어", "커리어개발"]},
+          {"name": "수학/컴퓨터(택1)", "count": 1, "keywords": ["미분적분학", "컴퓨터프로그래밍"]},
+          {"name": "물리(1)", "count": 1, "keywords": ["일반물리학및실험(1)", "일반물리학및실험1"]},
+          {"name": "화학(1)", "count": 1, "keywords": ["일반화학및실험(1)", "일반화학및실험1"]},
+          {"name": "생물(1)", "count": 1, "keywords": ["일반생물학및실험(1)", "일반생물학및실험1"]}
+        ],
+        "required_areas": ["논리와수리", "자연과우주", "생명과환경"],
+        "elective_areas": ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "정보와기술"],
+        "elective_min_count": 4,
+        "elective_credit_min": 12
+      },
+      "english_cert": true,
+      "info_cert": true
+    }
+  },
+  
   "2022": {
     "임상병리학과": {
       "total_credits": 140,
