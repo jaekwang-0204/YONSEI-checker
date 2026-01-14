@@ -6,6 +6,7 @@ import json
 import pytesseract
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
+import difflib # [NEW] 유사도 검사를 위한 라이브러리
 
 # Tesseract 경로 (필요시 설정, 리눅스/클라우드 환경은 주석 유지)
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -40,35 +41,50 @@ def clean_ocr_line(line):
     line = re.sub(r'[~@#$%\^&*_\-=|;:"<>,.?/]', ' ', line)
     return line.strip()
 
-def find_course_in_db(course_name, year, dept):
+def classify_course_fuzzy(course_name, year, dept):
     """
-    OCR된 과목명(오타 가능성 있음)을 DB의 정확한 명칭과 매칭 시도
+    [NEW] 유사도 검사 기반 과목 분류
+    OCR된 이름과 DB의 전공 과목명을 비교하여 가장 비슷한 것을 찾음
     """
     if year not in db or dept not in db[year]:
         return course_name, "교양/기타"
     
     known = db[year][dept].get("known_courses", {})
-    clean_input = normalize_string(course_name)
+    norm_input = normalize_string(course_name)
     
-    # 너무 짧으면(1글자 등) 매칭 포기
-    if len(clean_input) < 2:
-        return course_name, "교양/기타"
-
-    # 1. 전공 필수 매칭
+    # 1. DB 목록 준비
+    # (과목명, 타입) 튜플 리스트 생성
+    db_courses = []
     for req in known.get("major_required", []):
-        if normalize_string(req) in clean_input: # 포함 관계 확인
-            return req, "전공필수" # DB의 정확한 명칭 반환
-            
-    # 2. 전공 선택 매칭
+        db_courses.append((req, "전공필수"))
     for sel in known.get("major_elective", []):
-        if normalize_string(sel) in clean_input:
-            return sel, "전공선택"
+        db_courses.append((sel, "전공선택"))
+        
+    best_match = None
+    highest_ratio = 0.0
+    
+    for db_name, db_type in db_courses:
+        norm_db = normalize_string(db_name)
+        
+        # (A) 완전 포함 관계 (가장 강력)
+        if norm_db in norm_input or norm_input in norm_db:
+            return db_name, db_type # 정확한 DB 명칭으로 반환
             
+        # (B) 유사도 검사 (오타 보정)
+        ratio = difflib.SequenceMatcher(None, norm_db, norm_input).ratio()
+        if ratio > highest_ratio:
+            highest_ratio = ratio
+            best_match = (db_name, db_type)
+            
+    # 유사도가 0.6 (60%) 이상이면 같은 과목으로 인정
+    if best_match and highest_ratio >= 0.6:
+        return best_match[0], best_match[1]
+        
     return course_name, "교양/기타"
 
 def ocr_image_and_parse(image_file, year, dept):
     try:
-        # 이미지 전처리 (흑백, 대비 강화)
+        # 이미지 전처리
         img = Image.open(image_file).convert('L')
         img = ImageOps.autocontrast(img)
         img = ImageEnhance.Contrast(img).enhance(2.0)
@@ -79,52 +95,40 @@ def ocr_image_and_parse(image_file, year, dept):
         parsed_courses = []
         lines = text.split('\n')
         
-        # [DB 기반 강제 탐색을 위한 전체 전공 리스트]
-        known_majors = []
-        if year in db and dept in db[year]:
-            k = db[year][dept].get("known_courses", {})
-            known_majors.extend([(m, "전공필수") for m in k.get("major_required", [])])
-            known_majors.extend([(m, "전공선택") for m in k.get("major_elective", [])])
-
+        # [NEW] 헤더 감지 플래그 (이게 True가 되기 전엔 파싱 안함)
+        start_parsing = False
+        
         for line in lines:
-            line = clean_ocr_line(line)
-            if len(line) < 2: continue
+            clean_line = clean_ocr_line(line)
+            if not clean_line: continue
             
-            # --- [전략 1] DB 역탐색 (가장 정확) ---
-            found_major = False
-            for k_name, k_type in known_majors:
-                if normalize_string(k_name) in normalize_string(line):
-                    # 과목명 찾음 -> 학점(숫자)만 찾으면 됨
-                    # 숫자(1~9)가 독립적으로 있거나 .5가 붙은 경우
-                    credit_match = re.search(r'\b([1-9](?:\.5)?)\b', line)
-                    credit = float(credit_match.group(1)) if credit_match else 3.0
-                    
-                    if not any(c['name'] == k_name for c in parsed_courses):
-                        parsed_courses.append({
-                            "name": k_name, "credit": credit, "type": k_type
-                        })
-                    found_major = True
-                    break
+            # 1. 헤더 감지 로직 (과목명, 학점, 성적 등의 단어가 보이면 시작)
+            if not start_parsing:
+                if any(k in clean_line for k in ["과목명", "학점", "성적", "전공", "이수", "등급"]):
+                    start_parsing = True
+                continue # 헤더 줄 자체는 건너뜀
             
-            if found_major: continue
+            # 2. 파싱 로직 (헤더 이후부터 동작)
             
-            # --- [전략 2] 일반 패턴 (성적 무시 모드) ---
-            # 패턴: (과목명) (공백) (학점:숫자) (나머지는 무시)
-            match = re.search(r'^(.*?)\s+([1-9](?:\.5)?)(?:\s+.*)?$', line)
+            # 노이즈 필터 (헤더 이후에도 나올 수 있는 이상한 줄 제거)
+            if any(k in clean_line for k in ["평점", "취득", "총점", "학년", "학기", "신청"]):
+                continue
+                
+            # 패턴: (과목명) ... (학점:숫자)
+            # 예: "미래설계리빙랩 3 P" -> Name="미래설계리빙랩", Credit=3
+            match = re.search(r'^(.*?)\s+([1-9](?:\.5)?)(?:\s+.*)?$', clean_line)
             
             if match:
                 raw_name = match.group(1).strip()
                 credit = float(match.group(2))
                 
-                # 노이즈 필터링 ("0", "학점" 등 제외)
-                if len(raw_name) < 2 or raw_name in ["학점", "평점", "전공", "취득", "과목명", "0"]:
-                    continue
-                # 한글/영어가 하나도 없으면(특수문자 덩어리) 무시
-                if not re.search(r'[가-힣a-zA-Z]', raw_name):
-                    continue
+                # 과목명 유효성 검사
+                if len(raw_name) < 2 or raw_name in ["0", "O", "o"]: continue
+                # 한글/영어가 없는 특수문자 줄 제거
+                if not re.search(r'[가-힣a-zA-Z]', raw_name): continue
 
-                # DB 매칭 시도
-                final_name, final_type = find_course_in_db(raw_name, year, dept)
+                # [NEW] 유사도 기반 분류 실행
+                final_name, final_type = classify_course_fuzzy(raw_name, year, dept)
                 
                 if not any(c['name'] == final_name for c in parsed_courses):
                     parsed_courses.append({
@@ -174,7 +178,7 @@ with st.sidebar:
         m_type_sel = st.selectbox("구분", ["자동감지", "전공필수", "전공선택", "교양/기타"])
         if st.form_submit_button("추가"):
             if m_type_sel == "자동감지":
-                _, ftype = find_course_in_db(m_name, selected_year, selected_dept)
+                _, ftype = classify_course_fuzzy(m_name, selected_year, selected_dept)
             else:
                 ftype = m_type_sel
             
@@ -241,7 +245,7 @@ if full_text.strip():
     clean_text = filter_failed_courses(full_text)
     
     # 1. 학점 계산
-    # (A) PDF에서 총점 찾기
+    # (A) PDF에서 총점 찾기 (가장 정확)
     pdf_total = float((re.search(r'(?:취득학점|학점계)[:\s]*(\d{2,3})', clean_text) or [0,0])[1])
     pdf_maj_req = float((re.search(r'전공필수[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
     pdf_maj_sel = float((re.search(r'전공선택[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
@@ -276,10 +280,11 @@ if full_text.strip():
         # 텍스트 검색
         found_in_text = any(kw in clean_text for kw in item["keywords"])
         
-        # 리스트 검색 (띄어쓰기 달라도 찾음)
+        # 리스트 검색 (유사도 검사 통과한 명칭 기준)
         found_in_list = False
         if not found_in_text:
             for course in unique_added:
+                # OCR 과정에서 이미 DB 매칭되어 '정확한 명칭'으로 변환된 상태일 수 있음
                 norm_name = normalize_string(course['name'])
                 if any(kw in norm_name for kw in item["keywords"]):
                     found_in_list = True
@@ -289,7 +294,7 @@ if full_text.strip():
             req_fail.append(item['name'])
 
     all_area = set(gen_rule.get("required_areas", []) + gen_rule.get("elective_areas", []))
-    my_area = [a for a in all_area if a in clean_text] # 이건 텍스트 매칭으로 충분
+    my_area = [a for a in all_area if a in clean_text]
     
     miss_req_area = set(gen_rule.get("required_areas", [])) - set(my_area)
     elec_fail_cnt = max(0, gen_rule["elective_min_count"] - len([a for a in my_area if a in gen_rule.get("elective_areas", [])]))
@@ -299,7 +304,6 @@ if full_text.strip():
         final_total >= criteria['total_credits'],
         final_maj >= criteria['major_total'],
         final_req >= criteria['major_required'],
-        # PDF일때만 3000단위 체크, 이미지일 땐 패스 처리
         (pdf_upper >= criteria['advanced_course'] if pdf_total > 0 else True), 
         not req_fail, not miss_req_area, elec_fail_cnt == 0,
         is_eng, is_info
@@ -332,7 +336,7 @@ if full_text.strip():
             df = pd.DataFrame(ocr_courses)
             df = df.drop_duplicates(subset=['name'])
             st.dataframe(df)
-            st.caption(f"인식된 총 학점 합계: {added_total}점")
+            st.caption(f"이미지 인식 학점 합계: {added_total}점")
         else:
             st.info("이미지에서 인식된 과목이 없습니다.")
             
