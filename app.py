@@ -35,7 +35,7 @@ def normalize_string(s):
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s)
 
 def clean_ocr_line(line):
-    """OCR 결과 라인별 노이즈 정리 (성적 관련 오타 수정 로직 제거 -> 단순화)"""
+    """OCR 결과 라인별 노이즈 정리"""
     # 물결표(~), 특수문자 제거 (괄호는 살림)
     line = re.sub(r'[~@#$%\^&*_\-=|;:"<>,.?/]', ' ', line)
     return line.strip()
@@ -45,7 +45,7 @@ def find_course_in_db(course_name, year, dept):
     OCR된 과목명(오타 가능성 있음)을 DB의 정확한 명칭과 매칭 시도
     """
     if year not in db or dept not in db[year]:
-        return course_name, "교양/기타" # 매칭 불가 시 원본 이름 사용
+        return course_name, "교양/기타"
     
     known = db[year][dept].get("known_courses", {})
     clean_input = normalize_string(course_name)
@@ -110,15 +110,14 @@ def ocr_image_and_parse(image_file, year, dept):
             
             # --- [전략 2] 일반 패턴 (성적 무시 모드) ---
             # 패턴: (과목명) (공백) (학점:숫자) (나머지는 무시)
-            # 예: "미래설계리빙랩 3 P" -> Name="미래설계리빙랩", Credit=3
             match = re.search(r'^(.*?)\s+([1-9](?:\.5)?)(?:\s+.*)?$', line)
             
             if match:
                 raw_name = match.group(1).strip()
                 credit = float(match.group(2))
                 
-                # 노이즈 필터링
-                if len(raw_name) < 2 or raw_name in ["학점", "평점", "전공", "취득", "과목명"]:
+                # 노이즈 필터링 ("0", "학점" 등 제외)
+                if len(raw_name) < 2 or raw_name in ["학점", "평점", "전공", "취득", "과목명", "0"]:
                     continue
                 # 한글/영어가 하나도 없으면(특수문자 덩어리) 무시
                 if not re.search(r'[가-힣a-zA-Z]', raw_name):
@@ -138,14 +137,9 @@ def ocr_image_and_parse(image_file, year, dept):
         return f"Error: {e}", []
 
 def filter_failed_courses(full_text):
-    """
-    1. 텍스트 줄 중에 'F'나 'NP'가 명확히 포함된 줄을 제거합니다.
-       (성적을 안 읽더라도, 원본 텍스트에 F가 있으면 거릅니다)
-    """
     lines = full_text.split('\n')
     filtered = []
     for line in lines:
-        # F 또는 NP가 단독으로 있거나 앞뒤 공백이 있는 경우 제거
         if re.search(r'\sF\s|\sF$|\sNP\s|\sNP$', line): continue
         filtered.append(line)
     return "\n".join(filtered)
@@ -244,12 +238,10 @@ if full_text.strip():
     if selected_year not in db: st.stop()
     criteria = db[selected_year][selected_dept]
     gen_rule = criteria.get("general_education", {})
-    
-    # [중요] F학점 제거는 파싱 전에 raw text 단계에서 수행
     clean_text = filter_failed_courses(full_text)
     
     # 1. 학점 계산
-    # (A) PDF에서 총점 찾기 (가장 정확)
+    # (A) PDF에서 총점 찾기
     pdf_total = float((re.search(r'(?:취득학점|학점계)[:\s]*(\d{2,3})', clean_text) or [0,0])[1])
     pdf_maj_req = float((re.search(r'전공필수[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
     pdf_maj_sel = float((re.search(r'전공선택[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
@@ -257,7 +249,8 @@ if full_text.strip():
     
     # (B) OCR/수동 합산
     all_added = st.session_state.manual_courses + ocr_courses
-    unique_added = {v['name']:v for v in all_added}.values() # 중복 제거
+    # 중복 제거 (과목명 기준)
+    unique_added = {v['name']:v for v in all_added}.values()
     
     added_total = sum(c['credit'] for c in unique_added)
     added_req = sum(c['credit'] for c in unique_added if c['type'] == '전공필수')
@@ -265,12 +258,12 @@ if full_text.strip():
     
     # (C) 최종 결정
     if pdf_total > 0:
-        # PDF가 있으면 수동 추가분만 더함 (OCR 무시)
+        # PDF 우선
         final_total = pdf_total + sum(c['credit'] for c in st.session_state.manual_courses)
         final_req = pdf_maj_req + sum(c['credit'] for c in st.session_state.manual_courses if c['type'] == '전공필수')
         final_sel = pdf_maj_sel + sum(c['credit'] for c in st.session_state.manual_courses if c['type'] == '전공선택')
     else:
-        # 이미지만 있으면 합산값 사용
+        # 이미지 모드
         final_total = added_total
         final_req = added_req
         final_sel = added_sel
@@ -296,7 +289,7 @@ if full_text.strip():
             req_fail.append(item['name'])
 
     all_area = set(gen_rule.get("required_areas", []) + gen_rule.get("elective_areas", []))
-    my_area = [a for a in all_area if a in clean_text] # 영역명은 텍스트 매칭으로 충분
+    my_area = [a for a in all_area if a in clean_text] # 이건 텍스트 매칭으로 충분
     
     miss_req_area = set(gen_rule.get("required_areas", [])) - set(my_area)
     elec_fail_cnt = max(0, gen_rule["elective_min_count"] - len([a for a in my_area if a in gen_rule.get("elective_areas", [])]))
@@ -306,7 +299,7 @@ if full_text.strip():
         final_total >= criteria['total_credits'],
         final_maj >= criteria['major_total'],
         final_req >= criteria['major_required'],
-        # PDF일때만 3000단위 체크, 이미지일 땐 패스 처리 (정보 부족)
+        # PDF일때만 3000단위 체크, 이미지일 땐 패스 처리
         (pdf_upper >= criteria['advanced_course'] if pdf_total > 0 else True), 
         not req_fail, not miss_req_area, elec_fail_cnt == 0,
         is_eng, is_info
@@ -336,10 +329,10 @@ if full_text.strip():
 
     with st.expander("📸 인식된 과목 목록 (클릭)"):
         if ocr_courses:
-            df = pd.DataFrame(ocr_courses).drop(columns=['grade'], errors='ignore') # 성적 컬럼 숨김
+            df = pd.DataFrame(ocr_courses)
             df = df.drop_duplicates(subset=['name'])
             st.dataframe(df)
-            st.caption(f"이미지 인식 학점 합계: {added_total}점")
+            st.caption(f"인식된 총 학점 합계: {added_total}점")
         else:
             st.info("이미지에서 인식된 과목이 없습니다.")
             
