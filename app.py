@@ -6,7 +6,7 @@ import pytesseract
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
 
-st.set_page_config(page_title="연세대 졸업진단 (에브리타임 전용)", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="연세대 졸업예비진단", page_icon="🎓", layout="wide")
 
 # --- 세션 상태 초기화 ---
 if 'ocr_results' not in st.session_state:
@@ -107,15 +107,15 @@ with st.sidebar:
         show_bug_report_dialog(selected_year, selected_dept)
 
 # --- 4. 메인 UI ---
-st.title("🎓 연세대 졸업요건 진단 (에브리타임 전용)")
-st.info("에브리타임 성적 화면 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
+st.title("🎓 연세대 졸업요건 진단")
+st.info("에브리타임 성적 화면(학점계산기) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
 
 tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 과목 수정 및 최종 진단"])
 
 with tab1:
     img_files = st.file_uploader("에브리타임 성적 캡쳐 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
     if img_files and st.button("🔍 성적표 분석 실행"):
-        with st.spinner("이미지에서 과목 정보를 추출하는 중..."):
+        with st.spinner("이미지에서 수강 정보를 추출하는 중..."):
             all_results = []
             for img in img_files:
                 all_results.extend(ocr_image_parsing(img, selected_year, selected_dept))
@@ -197,3 +197,4 @@ with tab2:
             st.dataframe(edited_df, use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
