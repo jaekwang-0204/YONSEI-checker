@@ -72,7 +72,6 @@ def ocr_image_parsing(image_file, year, dept):
         img = Image.open(image_file).convert('L')
         img = ImageOps.autocontrast(img)
         img = ImageEnhance.Contrast(img).enhance(2.0)
-        # PSM 6: 단일 텍스트 블록으로 가정하여 인식률 향상
         text = pytesseract.image_to_string(img, lang='kor+eng', config='--psm 6')
         
         parsed_data = []
@@ -151,20 +150,29 @@ with tab2:
         known = criteria.get("known_courses", {})
         
         # 1. 학점 및 기본 분석 데이터 확보
-        all_major_names = known.get('major_required', []) + known.get('major_elective', [])
+        all_major_list = known.get('major_required', []) + known.get('major_elective', [])
         adv_patterns = known.get("advanced_keywords", [])
         my_course_names_norm = [normalize_string(c['과목명']) for c in final_courses]
 
-        # [수정] 직접 대조 방식의 심화 학점 판정 함수 (정밀도 개선)
-        def get_advanced_score(course):
+        # [수정] 유연한 심화 학점 판정 함수 (앞 4글자 매칭 로직)
+        def get_advanced_score_flexible(course):
             c_name_norm = normalize_string(course['과목명'])
-            # 1단계: JSON 전공 리스트에 실재하는지 확인
-            is_real_major = any(normalize_string(m) in c_name_norm for m in all_major_names)
+            c_type = str(course['이수구분'])
             
-            # 2단계: 전공이면서 심화 키워드(BML3, 3000 등)를 포함해야 인정
-            if is_real_major:
+            # 조건 1: 사용자가 이수구분을 '전공필수' 또는 '전공선택'으로 분류한 경우만 대상
+            if "전공" in c_type:
+                # 방법 A: 과목명에 3000, 4000, BML3 등 심화 패턴이 직접 있는 경우
                 if any(kw in c_name_norm for kw in adv_patterns):
                     return course['학점']
+                
+                # 방법 B: JSON 전공 리스트 중 앞 4글자가 일치하는 경우
+                for major_name in all_major_list:
+                    major_norm = normalize_string(major_name)
+                    # JSON의 과목명이 최소 4자 이상일 때 앞 4자 비교
+                    if len(major_norm) >= 4 and major_norm[:4] in c_name_norm:
+                        # 해당 JSON 과목이 실제로 심화 기준(advanced_keywords)을 충족하는 과목인지 확인
+                        if any(kw in major_norm for kw in adv_patterns):
+                            return course['학점']
             return 0
 
         total_sum = sum(c['학점'] for c in final_courses)
@@ -172,8 +180,8 @@ with tab2:
         maj_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공선택")
         maj_total_sum = maj_req + maj_sel
 
-        # 심화 학점 계산 (개선된 함수 적용)
-        advanced_sum = sum(get_advanced_score(c) for c in final_courses)
+        # 심화 학점 계산 (유연한 로직 적용)
+        advanced_sum = sum(get_advanced_score_flexible(c) for c in final_courses)
         
         # 3. 리더십 및 필수교양 과목 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
@@ -221,17 +229,19 @@ with tab2:
         m3.metric("3~4000 단위(심화)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
         m4.metric("리더십(RC 포함)", f"{leadership_count} / 2")
 
-        # 💡 부족 요건 보완 가이드 (사용자 요청 추가 사항)
+        # 
+
+        # 💡 부족 요건 보완 가이드
         if not is_all_pass:
             st.markdown("### 💡 부족 요건 보완 가이드")
             
-            # 1. 심화 학점 부족 시 강의 리스트 출력 (직접 대조 방식)
+            # 1. 심화 학점 부족 시 강의 리스트 출력 (유연한 대조 방식)
             if not pass_advanced:
                 with st.expander("🔴 3000~4000단위(심화) 추천 강의 리스트", expanded=True):
                     st.info(f"심화 학점이 **{int(criteria['advanced_course'] - advanced_sum)}학점** 부족합니다. 다음은 이수하지 않은 전공 심화 과목입니다.")
-                    # JSON 전체 전공 중 심화 과목 필터링 후, 내가 듣지 않은 것만 골라냄
-                    adv_candidates = [m for m in all_major_names if any(kw in normalize_string(m) for kw in adv_patterns)]
-                    not_taken_adv = [m for m in adv_candidates if normalize_string(m) not in my_course_names_norm]
+                    # JSON 전체 전공 중 심화 과목 필터링 후, 내가 듣지 않은 것만 골라냄 (앞 4자 기준)
+                    adv_candidates = [m for m in all_major_list if any(kw in normalize_string(m) for kw in adv_patterns)]
+                    not_taken_adv = [m for m in adv_candidates if not any(normalize_string(m)[:4] in name for name in my_course_names_norm)]
                     
                     if not_taken_adv:
                         st.write("✅ **미이수 심화 과목 리스트:**")
