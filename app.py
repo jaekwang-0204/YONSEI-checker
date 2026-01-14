@@ -7,13 +7,12 @@ import pytesseract
 from PIL import Image
 import os
 
-# Tesseract 경로 설정 (로컬/서버 환경 분기)
-# Streamlit Cloud 등 리눅스 환경에서는 보통 자동 인식되나, 필요시 설정
+# Tesseract 경로 설정 (필요 시 주석 해제)
 # pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 st.set_page_config(page_title="졸업요건 진단기 (Ultimate)", page_icon="🎓")
 
-# --- 세션 상태 초기화 (수동 입력 데이터 유지용) ---
+# --- 세션 상태 초기화 ---
 if 'manual_courses' not in st.session_state:
     st.session_state.manual_courses = []
 
@@ -41,11 +40,31 @@ def filter_failed_courses(full_text):
 def ocr_image(image_file):
     try:
         image = Image.open(image_file)
-        # 한글+영어 모드로 추출
         text = pytesseract.image_to_string(image, lang='kor+eng')
         return text
     except Exception as e:
         return f"Error: {e}"
+
+# --- [NEW] 버그 신고 팝업창 함수 ---
+@st.dialog("🐛 버그 신고 및 문의")
+def show_bug_report_dialog(year, dept):
+    st.write("시스템 오류가 발생했나요? 아래 정보를 복사해서 메일을 보내주세요.")
+    st.divider()
+    
+    st.caption("1. 받는 사람 이메일 (복사 버튼 클릭)")
+    st.code("jaekwang1164@gmail.com", language="text")
+    
+    st.caption("2. 메일 제목 (복사 버튼 클릭)")
+    subject = f"[졸업진단기 버그신고] {year}학번 {dept} 오류 제보"
+    st.code(subject, language="text")
+    
+    st.caption("3. 메일 본문 양식 (복사 버튼 클릭)")
+    body = """1. 오류 내용: 
+2. 기대했던 결과: 
+3. 첨부파일(선택): 성적표 PDF 또는 오류 화면 캡쳐"""
+    st.code(body, language="text")
+    
+    st.info("💡 오른쪽 위의 📄 아이콘을 누르면 내용이 복사됩니다.")
 
 # --- 3. 사이드바 (설정 & 수동 입력) ---
 with st.sidebar:
@@ -66,7 +85,7 @@ with st.sidebar:
 
     st.divider()
 
-    # [기능 2] 수동 과목 추가 (핵심 기능)
+    # 수동 과목 추가
     st.markdown("### ➕ 과목 수동 추가")
     st.caption("성적표에 없거나 누락된 과목을 직접 추가하세요.")
     
@@ -84,7 +103,7 @@ with st.sidebar:
             })
             st.success(f"'{m_name}' 추가됨!")
 
-    # 추가된 과목 리스트 보여주기 & 삭제 기능
+    # 추가된 과목 리스트
     if st.session_state.manual_courses:
         st.markdown("---")
         st.write("**추가된 과목 목록**")
@@ -97,11 +116,10 @@ with st.sidebar:
 
     st.divider()
     
-    # 버그 신고
+    # [수정됨] 버그 신고 버튼 (팝업 호출)
     st.markdown("### 🐛 버그 신고")
-    email_subject = f"[졸업진단기 버그신고] {selected_year}학번 {selected_dept}"
-    mailto_link = f"mailto:jaekwang1164@gmail.com?subject={email_subject}"
-    st.markdown(f'<a href="{mailto_link}" target="_blank">📧 개발자에게 메일 보내기</a>', unsafe_allow_html=True)
+    if st.button("📧 개발자에게 메일 보내기"):
+        show_bug_report_dialog(selected_year, selected_dept)
 
 
 # --- 메인 화면 ---
@@ -115,7 +133,7 @@ is_info = col2.checkbox("정보/산학 인증 완료", value=False)
 
 st.divider()
 
-# --- 4. 데이터 입력 (탭 확장) ---
+# --- 4. 데이터 입력 ---
 tab1, tab2, tab3 = st.tabs(["📂 PDF 업로드", "🖼️ 이미지/캡쳐 (OCR)", "📝 텍스트 붙여넣기"])
 extracted_text = ""
 
@@ -139,7 +157,6 @@ with tab3:
     if manual_input: extracted_text += manual_input
 
 # --- 5. 분석 및 병합 로직 ---
-# 기본 텍스트 + 수동 추가된 과목명 합치기 (검색용)
 manual_text_block = " ".join([c['name'] for c in st.session_state.manual_courses])
 full_analysis_text = extracted_text + "\n" + manual_text_block
 
@@ -152,39 +169,31 @@ if full_analysis_text.strip():
     gen_rule = criteria.get("general_education", {})
     clean_text = filter_failed_courses(full_analysis_text)
     
-    # --- [중요] 학점 계산 로직 수정 (자동 추출 + 수동 합산) ---
-    
-    # 1. 문서에서 자동 추출된 학점
+    # 학점 계산 (자동 + 수동)
     auto_total = float((re.search(r'(?:취득학점|학점계)[:\s]*(\d{2,3})', clean_text) or [0,0])[1])
     auto_maj_req = float((re.search(r'전공필수[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
     auto_maj_sel = float((re.search(r'전공선택[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
     auto_upper = float((re.search(r'3~4천단위[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
     
-    # 2. 수동 입력된 학점 합산
     manual_total = sum([c['credit'] for c in st.session_state.manual_courses])
     manual_maj_req = sum([c['credit'] for c in st.session_state.manual_courses if c['type'] == "전공필수"])
     manual_maj_sel = sum([c['credit'] for c in st.session_state.manual_courses if c['type'] == "전공선택"])
     
-    # 3. 최종 학점
     final_total = auto_total + manual_total
     final_maj_req = auto_maj_req + manual_maj_req
     final_maj_sel = auto_maj_sel + manual_maj_sel
     final_maj_total = final_maj_req + final_maj_sel
-    
-    # (주의: 3000단위는 수동 입력에서 체크하기 어려워 자동 추출값 유지하거나, 필요시 수동 입력에 체크박스 추가 가능)
     final_upper = auto_upper 
 
-    # --- 교양 체크 로직 ---
-    # 필수 과목
+    # 교양 체크
     req_courses_fail_list = [] 
     for item in gen_rule.get("required_courses", []):
         count = 0
         for kw in item["keywords"]:
-            count += clean_text.count(kw) # 수동 입력된 과목명도 clean_text에 있으므로 카운트됨
+            count += clean_text.count(kw)
         if count < 1: 
             req_courses_fail_list.append(item['name'])
 
-    # 교양 영역
     all_req_areas = set(gen_rule.get("required_areas", []))
     all_elec_areas = set(gen_rule.get("elective_areas", []))
     
@@ -195,7 +204,7 @@ if full_analysis_text.strip():
     missing_elec_count = gen_rule["elective_min_count"] - len(my_elec_areas)
     unused_elec_areas = all_elec_areas - set(my_elec_areas)
 
-    # --- 판정 ---
+    # 판정
     pass_total = final_total >= criteria['total_credits']
     pass_maj_tot = final_maj_total >= criteria['major_total']
     pass_maj_req = final_maj_req >= criteria['major_required']
@@ -208,7 +217,7 @@ if full_analysis_text.strip():
 
     final_pass = all([pass_total, pass_maj_tot, pass_maj_req, pass_upper, pass_eng, pass_info, pass_gen_req_course, pass_gen_area_req, pass_gen_area_elec])
 
-    # --- 결과 출력 ---
+    # 결과 출력
     st.divider()
     st.header("🏁 종합 판정 결과")
     
@@ -224,7 +233,6 @@ if full_analysis_text.strip():
     c2.metric("전공 학점", f"{int(final_maj_total)} / {criteria['major_total']}", delta=f"+{manual_maj_req+manual_maj_sel} 수동" if (manual_maj_req+manual_maj_sel) else None)
     c3.metric("필수 교양", "이수" if pass_gen_req_course else "미이수")
 
-    # 상세 텍스트 확인
     with st.expander("📄 분석된 전체 텍스트 (PDF/이미지 + 수동입력)", expanded=False):
         st.text(clean_text)
 
@@ -241,7 +249,6 @@ if full_analysis_text.strip():
         
         if not pass_gen_area_elec:
             st.error(f"**[선택 영역 부족]** {missing_elec_count}개 영역 추가 필요")
-            # 추천 강의 로직
             st.markdown("---")
             st.markdown("##### 💡 추천 강의")
             rec_map = gen_rule.get("area_courses", {}) or db.get("area_courses", {})
