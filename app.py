@@ -201,4 +201,114 @@ with tab3:
     edited_df = st.data_editor(
         df_input,
         num_rows="dynamic", # 행 추가/삭제 가능
-        use_container_width=
+        use_container_width=True,
+        column_config={
+            "과목명": st.column_config.TextColumn("과목명", required=True),
+            "학점": st.column_config.NumberColumn(
+                "학점", min_value=0.5, max_value=20.0, step=0.5, format="%.1f"
+            ),
+            "이수구분": st.column_config.SelectboxColumn(
+                "이수구분",
+                options=[
+                    "전공필수", "전공선택", 
+                    "교양", "교양(문학과예술)", "교양(인간과역사)", "교양(언어와표현)", 
+                    "교양(가치와윤리)", "교양(국가와사회)", "교양(지역과세계)", 
+                    "교양(논리와수리)", "교양(자연과우주)", "교양(생명과환경)", 
+                    "교양(정보와기술)", "교양(체육과건강)", "기타"
+                ],
+                required=True
+            )
+        },
+        key="editor"
+    )
+
+# --- 분석 로직 ---
+st.divider()
+
+# 분석 대상 데이터: PDF 텍스트 + 에디터에서 수정된 데이터프레임
+final_courses = edited_df.to_dict('records')
+manual_text = "\n".join([c['과목명'] for c in final_courses]) # 교양 키워드 검색용 텍스트
+full_text = extracted_text_pdf + "\n" + manual_text
+
+if full_text.strip():
+    if selected_year not in db: st.stop()
+    criteria = db[selected_year][selected_dept]
+    clean_text = filter_failed_courses(full_text)
+    
+    # 1. 학점 계산
+    # (A) PDF (자동 추출)
+    pdf_total = float((re.search(r'(?:취득학점|학점계)[:\s]*(\d{2,3})', clean_text) or [0,0])[1])
+    pdf_req = float((re.search(r'전공필수[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
+    pdf_sel = float((re.search(r'전공선택[:\s]*(\d{1,3})', clean_text) or [0,0])[1])
+    
+    # (B) 에디터 데이터 합산
+    # unique_courses 제거함 (사용자가 에디터에서 중복을 직접 관리한다고 가정)
+    add_total = sum(c['학점'] for c in final_courses)
+    add_req = sum(c['학점'] for c in final_courses if c['이수구분'] == '전공필수')
+    add_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == '전공선택')
+    
+    # (C) 최종 합산 (PDF가 있으면 PDF 우선 + 에디터 추가분은 없음으로 가정하거나 단순 합산)
+    # 로직 수정: PDF가 있으면 PDF 점수 사용 (이미지 데이터 무시). PDF가 없으면 에디터 점수 사용.
+    if pdf_total > 0:
+        final_total = pdf_total
+        final_req = pdf_req
+        final_sel = pdf_sel
+        # 주의: PDF와 이미지를 섞어 쓰는 경우 중복 계산될 수 있음.
+        # 사용자가 에디터를 통해 데이터를 넣었다면, PDF 자동인식보다는 에디터 데이터를 우선시하는게 낫거나
+        # 혹은 PDF 점수에 '수동으로 추가한 것'만 더해야 하는데, 구분이 어려움.
+        # -> 여기서는 PDF가 인식되면 PDF 점수를 신뢰하고, PDF가 없으면 에디터 점수를 씁니다.
+    else:
+        final_total = add_total
+        final_req = add_req
+        final_sel = add_sel
+        
+    final_maj = final_req + final_sel
+
+    # 2. 교양 필수 체크
+    gen = criteria.get("general_education", {})
+    req_fail = []
+    for item in gen.get("required_courses", []):
+        # 텍스트 검색 (PDF 내용 + 에디터 과목명)
+        if not any(kw in clean_text for kw in item["keywords"]):
+            req_fail.append(item['name'])
+
+    # 3. 영역 체크
+    my_area = set()
+    # (1) 텍스트 기반 (PDF)
+    for area in gen.get("required_areas", []) + gen.get("elective_areas", []):
+        if area in clean_text: my_area.add(area)
+    # (2) 에디터 분류 기반 ("교양(영역명)" 형태)
+    for c in final_courses:
+        if "교양(" in c['이수구분']:
+            detected = c['이수구분'].replace("교양(", "").replace(")", "")
+            my_area.add(detected)
+
+    miss_req_area = set(gen.get("required_areas", [])) - my_area
+    elec_cnt = len([a for a in my_area if a in gen.get("elective_areas", [])])
+    elec_fail = max(0, gen["elective_min_count"] - elec_cnt)
+    
+    # 4. 인증
+    c1, c2 = st.columns(2)
+    with c1: is_eng = st.checkbox("외국어 인증", False)
+    with c2: is_info = st.checkbox("정보 인증", False)
+
+    # 5. 판정
+    is_pass = all([
+        final_total >= criteria['total_credits'],
+        final_maj >= criteria['major_total'],
+        final_req >= criteria['major_required'],
+        not req_fail, not miss_req_area, elec_fail == 0,
+        is_eng, is_info
+    ])
+
+    st.divider()
+    if is_pass: 
+        st.success("🎉 졸업 가능합니다!"); st.balloons()
+    else: 
+        st.error("⚠️ 졸업 요건이 부족합니다.")
+
+    # 결과 대시보드
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("총 학점", f"{int(final_total)} / {criteria['total_credits']}")
+    m2.metric("전공 합계", f"{int(final_maj)} / {criteria['major_total']}")
+    m3
