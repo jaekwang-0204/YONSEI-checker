@@ -164,28 +164,46 @@ with tab2:
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords_raw = known.get("advanced_keywords", [])
-        norm_adv_keywords = [normalize_string(kw) for kw in adv_keywords_raw]
+        norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_raw])), key=len)
         
         advanced_sum = 0.0
         detected_advanced = [] # 어떤 과목이 심화로 판정됐는지 기록
 
-        for c in final_courses:
-            # [핵심 2] 사용자가 입력한 과목명 정규화
-            raw_name = str(c.get('과목명', ""))
-            norm_name = normalize_string(raw_name)
-            credit = float(c.get('학점', 0))
-        
+        # st.data_editor의 결과인 edited_df를 직접 한 행씩 분석
+        for index, row in edited_df.iterrows():
+            c_name = str(row['과목명']).strip()
+            c_type = str(row['이수구분']).strip()
+            
+            # 학점 데이터를 float으로 안전하게 변환
+            try:
+                c_credit = float(row['학점'])
+            except:
+                c_credit = 0.0
+                
+            norm_name = normalize_string(c_name)
+            
             # [핵심 3] 매칭 검사 (키워드가 과목명 안에 포함되어 있는가?)
-            is_advanced = False
+            is_advanced_by_key = False
             if norm_name:
                 for kw in norm_adv_keywords:
                     if kw in norm_name: # 예: "분자진단" in "분자진단학및실험"
-                        is_advanced = True
+                        is_advanced_by_key = True
                         break
-        
-            if is_advanced:
-                advanced_sum += credit
-                detected_advanced.append(raw_name)
+                        
+            # [판정 로직 2] 이수구분 기반 매칭 (전공이면서 기초과목이 아닌 경우)
+            # 임상병리학과 1학년 과목(해부, 조직)은 심화에서 제외하는 방어 로직          
+            is_major = "전공" in c_type
+            basic_list = ["인체해부학", "의학용어", "해부학"]
+            is_exactly_basic = any(c_name == basic for basic in basic_list) or (c_name == "조직학")
+
+            #진단조직학 심화전공 판정 기준 강화
+            is_advanced_work = any(word in c_name for word in ["진단", "종합설계"])
+
+            is_basic = is_exactly_basic and not is_advanced_work
+            
+            if is_advanced_by_key or (is_major and not is_basic):
+                advanced_sum += c_credit
+                detected_advanced.append(c_name)
             
         # 3. 리더십 및 필수교양 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
@@ -242,6 +260,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
