@@ -71,10 +71,16 @@ def ocr_image_parsing(image_file, year, dept):
     """이미지 전처리 및 OCR 파싱"""
     try:
         img = Image.open(image_file).convert('L')
+            if img.width > 1000:
+                ratio = 1000 / float(img.width)
+                new_height = int(float(img.height) * ratio)
+                img = img.resize((1000, new_height), Image.Resampling.LANCZOS)
         img = ImageOps.autocontrast(img)
         img = ImageEnhance.Contrast(img).enhance(2.0)
         # PSM 6: 단일 텍스트 블록으로 가정하여 인식률 향상
-        text = pytesseract.image_to_string(img, lang='kor+eng', config='--psm 6')
+        # [최적화] 인식 범위를 화이트리스트로 제한하여 속도 향상
+        custom_config = '--psm 6 -c tessedit_char_whitelist=0123456789.가-힣abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()'
+        text = pytesseract.image_to_string(img, lang='kor+eng', config=custom_config)
         
         parsed_data = []
         for line in text.split('\n'):
@@ -119,22 +125,11 @@ with tab1:
     if img_files and st.button("🔍 성적표 분석 실행"):
         all_results = []
         
-        with st.spinner(f"총 {len(img_files)}장의 이미지를 병렬 분석 중입니다..."):
-            # --- 병렬 처리 핵심 로직 ---
-            # ThreadPoolExecutor를 사용하여 CPU 코어를 효율적으로 활용합니다.
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                # 각 이미지 파일에 대해 ocr_image_parsing 함수를 동시에 실행합니다.
-                # map 함수는 리스트의 순서를 보장하면서 결과를 반환합니다.
-                future_to_ocr = list(executor.map(
-                    lambda img: ocr_image_parsing(img, selected_year, selected_dept), 
-                    img_files
-                ))
-                
-                # 병렬 실행 결과들을 하나의 리스트로 합칩니다.
-                for result in future_to_ocr:
-                    all_results.extend(result)
-            # --------------------------
-            
+        with st.spinner(f"총 {len(img_files)}장의 이미지를 분석 중입니다..."):
+            for img in img_files: 
+                result = ocr_image_parsing(img, selected_year, selected_dept)
+                all_results.extend(result)
+                            
             # 과목명 기준 중복 제거 및 세션 상태 저장
             if all_results:
                 df_all = pd.DataFrame(all_results)
@@ -289,11 +284,3 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
-
-
-
-
-
-
-
