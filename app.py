@@ -84,6 +84,7 @@ def ocr_image_parsing(image_file, year, dept):
                 credit = float(match.group(2))
                 
                 # 노이즈 필터링 (너무 짧거나 숫자만 있는 경우 제외)
+                if credit <= 0 or credit > 5.0: continue
                 if len(raw_name) < 2 or raw_name.isdigit(): continue
                 
                 ftype = classify_course_logic(raw_name, year, dept)
@@ -260,6 +261,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
