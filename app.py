@@ -5,6 +5,7 @@ import json
 import pytesseract
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
+import concurrent.futures
 
 st.set_page_config(page_title="연세대 졸업예비진단", page_icon="🎓", layout="wide")
 
@@ -84,7 +85,7 @@ def ocr_image_parsing(image_file, year, dept):
                 credit = float(match.group(2))
                 
                 # 노이즈 필터링 (너무 짧거나 숫자만 있는 경우 제외)
-                if credit <= 0 or credit > 5.0: continue
+                if credit < 0 or credit > 5.0: continue
                 if len(raw_name) < 2 or raw_name.isdigit(): continue
                 
                 ftype = classify_course_logic(raw_name, year, dept)
@@ -116,16 +117,32 @@ tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 과목 수정 및 최종 
 with tab1:
     img_files = st.file_uploader("에브리타임 성적 캡쳐 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
     if img_files and st.button("🔍 성적표 분석 실행"):
-        with st.spinner("이미지에서 수강 정보를 추출하는 중..."):
-            all_results = []
-            for img in img_files:
-                all_results.extend(ocr_image_parsing(img, selected_year, selected_dept))
+        all_results = []
+        
+        with st.spinner(f"총 {len(img_files)}장의 이미지를 병렬 분석 중입니다..."):
+            # --- 병렬 처리 핵심 로직 ---
+            # ThreadPoolExecutor를 사용하여 CPU 코어를 효율적으로 활용합니다.
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                # 각 이미지 파일에 대해 ocr_image_parsing 함수를 동시에 실행합니다.
+                # map 함수는 리스트의 순서를 보장하면서 결과를 반환합니다.
+                future_to_ocr = list(executor.map(
+                    lambda img: ocr_image_parsing(img, selected_year, selected_dept), 
+                    img_files
+                ))
+                
+                # 병렬 실행 결과들을 하나의 리스트로 합칩니다.
+                for result in future_to_ocr:
+                    all_results.extend(result)
+            # --------------------------
             
-            # 과목명 기준 중복 제거
-            df_temp = pd.DataFrame(all_results).drop_duplicates(subset=['과목명'])
-            st.session_state.ocr_results = df_temp.to_dict('records')
-            st.success(f"총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다. '과목 수정' 탭에서 확인해주세요!")
-
+            # 과목명 기준 중복 제거 및 세션 상태 저장
+            if all_results:
+                df_temp = pd.DataFrame(all_results).drop_duplicates(subset=['과목명'])
+                st.session_state.ocr_results = df_temp.to_dict('records')
+                st.success(f"분석 완료! 총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다.")
+            else:
+                st.error("이미지 분석에 실패했거나 인식된 과목이 없습니다.")
+                
 with tab2:
     st.markdown("### 📝 수강 과목 관리")
     st.caption("OCR 인식 결과가 틀렸다면 직접 수정하세요. 행 왼쪽을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
@@ -261,6 +278,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
