@@ -163,8 +163,8 @@ with tab2:
         maj_total_sum = maj_req + maj_sel
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
-        adv_keywords = known.get("advanced_keywords", [])
-        norm_adv_keywords = [normalize_string(kw) for kw in adv_keywords]
+        adv_keywords_raw = known.get("advanced_keywords", [])
+        norm_adv_keywords = [normalize_string(kw) for kw in adv_keywords_raw]
         
         advanced_sum = 0.0
         detected_advanced = [] # 어떤 과목이 심화로 판정됐는지 기록
@@ -186,12 +186,6 @@ with tab2:
             if is_advanced:
                 advanced_sum += credit
                 detected_advanced.append(raw_name)
-
-        #심화전공 결과 확인용 디버깅 메세지
-        if detected_advanced:
-            st.info(f"✅ **심화 판정된 과목:** {', '.join(detected_advanced)}")
-        else:
-            st.warning("⚠️ **심화로 인식된 과목이 없습니다.** 테이블의 과목명에 '임상화학', '분자진단' 등이 포함되어 있는지 확인해주세요.")
             
         # 3. 리더십 및 필수교양 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
@@ -220,6 +214,13 @@ with tab2:
         else: 
             st.error("⚠️ 아직 충족되지 않은 요건이 있습니다. 아래 대시보드와 보완 사항을 확인하세요.")
 
+        # --- 메시지 출력 위치 ---
+        # ⚠️ Metric 대시보드보다 위에 출력되도록 위치 조정
+        if detected_advanced:
+            st.info(f"✅ **심화 판정된 과목:** {', '.join(detected_advanced)}")
+        else:
+            st.warning("⚠️ **심화로 인식된 과목이 없습니다.** 테이블의 과목명에 '임상화학', '분자진단' 등이 포함되어 있는지 확인해주세요.")
+            
         # 대시보드 레이아웃 (4열 구성)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("총 취득학점", f"{int(total_sum)} / {criteria['total_credits']}", delta=int(total_sum - criteria['total_credits']))
@@ -241,5 +242,6 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
