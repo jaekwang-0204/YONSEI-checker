@@ -164,8 +164,35 @@ with tab2:
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords = known.get("advanced_keywords", [])
-        advanced_sum = sum(c['학점'] for c in final_courses if any(kw in normalize_string(c['과목명']) for kw in adv_keywords))
+        norm_adv_keywords = [normalize_string(kw) for kw in adv_keywords_raw]
         
+        advanced_sum = 0.0
+        detected_advanced = [] # 어떤 과목이 심화로 판정됐는지 기록
+
+        for c in final_courses:
+            # [핵심 2] 사용자가 입력한 과목명 정규화
+            raw_name = str(c.get('과목명', ""))
+            norm_name = normalize_string(raw_name)
+            credit = float(c.get('학점', 0))
+        
+            # [핵심 3] 매칭 검사 (키워드가 과목명 안에 포함되어 있는가?)
+            is_advanced = False
+            if norm_name:
+                for kw in norm_adv_keywords:
+                    if kw in norm_name: # 예: "분자진단" in "분자진단학및실험"
+                        is_advanced = True
+                        break
+        
+            if is_advanced:
+                advanced_sum += credit
+                detected_advanced.append(raw_name)
+
+        #심화전공 결과 확인용 디버깅 메세지
+        if detected_advanced:
+            st.info(f"✅ **심화 판정된 과목:** {', '.join(detected_advanced)}")
+        else:
+            st.warning("⚠️ **심화로 인식된 과목이 없습니다.** 테이블의 과목명에 '임상화학', '분자진단' 등이 포함되어 있는지 확인해주세요.")
+            
         # 3. 리더십 및 필수교양 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
         
@@ -214,3 +241,4 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
