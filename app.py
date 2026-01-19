@@ -137,12 +137,23 @@ with tab1:
             
             # 과목명 기준 중복 제거 및 세션 상태 저장
             if all_results:
-                df_temp = pd.DataFrame(all_results).drop_duplicates(subset=['과목명'])
-                st.session_state.ocr_results = df_temp.to_dict('records')
-                st.success(f"분석 완료! 총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다.")
-            else:
-                st.error("이미지 분석에 실패했거나 인식된 과목이 없습니다.")
+                df_all = pd.DataFrame(all_results)
                 
+                # 1. "채플"이 포함된 행들만 따로 추출 (중복 제거 제외 대상)
+                # normalize_string을 사용하여 '채플', '채플(1)' 등을 모두 잡습니다.
+                is_chapel = df_all['과목명'].apply(lambda x: "채플" in x)
+                df_chapel = df_all[is_chapel]
+                
+                # 2. 채플이 아닌 나머지 과목들만 추출하여 중복 제거 수행
+                df_others = df_all[~is_chapel].drop_duplicates(subset=['과목명'])
+                
+                # 3. 두 데이터프레임을 다시 합치기
+                df_final = pd.concat([df_chapel, df_others], ignore_index=True)
+                
+                # 세션 상태에 저장
+                st.session_state.ocr_results = df_final.to_dict('records')
+                st.success(f"분석 완료! 총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다. (채플 포함)")                
+
 with tab2:
     st.markdown("### 📝 수강 과목 관리")
     st.caption("OCR 인식 결과가 틀렸다면 직접 수정하세요. 행 왼쪽을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
@@ -278,6 +289,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
