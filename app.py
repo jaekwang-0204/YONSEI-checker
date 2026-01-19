@@ -193,7 +193,7 @@ with tab2:
             # [판정 로직 2] 이수구분 기반 매칭 (전공이면서 기초과목이 아닌 경우)
             # 임상병리학과 1학년 과목(해부, 조직)은 심화에서 제외하는 방어 로직          
             is_major = "전공" in c_type
-            basic_list = ["인체해부학", "의학용어", "해부학"]
+            basic_list = ["인체해부학", "의학용어", "해부학", "세포생물학", "병리학", "미생물학"]
             is_exactly_basic = any(c_name == basic for basic in basic_list) or (c_name == "조직학")
 
             #진단조직학 심화전공 판정 기준 강화
@@ -260,6 +260,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
