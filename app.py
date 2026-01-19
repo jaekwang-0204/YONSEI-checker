@@ -164,7 +164,7 @@ with tab2:
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords = known.get("advanced_keywords", [])
-        norm_adv_keywords = [normalize_string(kw) for kw in adv_keywords_raw]
+        norm_adv_keywords = [normalize_string(kw) for kw in adv_keywords]
         
         advanced_sum = 0.0
         detected_advanced = [] # 어떤 과목이 심화로 판정됐는지 기록
@@ -241,4 +241,5 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
