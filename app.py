@@ -5,7 +5,6 @@ import json
 import pytesseract
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
-import concurrent.futures
 
 st.set_page_config(page_title="연세대 졸업예비진단", page_icon="🎓", layout="wide")
 
@@ -115,14 +114,14 @@ with st.sidebar:
         show_bug_report_dialog(selected_year, selected_dept)
 
 # --- 4. 메인 UI ---
-st.title("🎓 연세대 졸업요건 예비진단")
-st.info("에브리타임 성적 화면(학점계산기) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
+st.title("🎓 연세대 임상병리학과 졸업요건 예비진단")
+st.info("에브리타임 학점계산기(성적 화면) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
 
 tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 과목 수정 및 최종 진단"])
 
 with tab1:
-    img_files = st.file_uploader("에브리타임 성적 캡쳐 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
-    if img_files and st.button("🔍 성적표 분석 실행"):
+    img_files = st.file_uploader("에브리타임 학점계산기 캡쳐 이미지 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
+    if img_files and st.button("🔍 성적 이미지지 분석 실행"):
         all_results = []
         
         with st.spinner(f"총 {len(img_files)}장의 이미지를 분석 중입니다..."):
@@ -151,12 +150,12 @@ with tab1:
 
 with tab2:
     st.markdown("### 📝 수강 과목 관리")
-    st.caption("OCR 인식 결과가 틀렸다면 직접 수정하세요. 행 왼쪽을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
+    st.caption("OCR 인식 결과(강의명, 학점, 이수구분 등)가 정확하지 않을 경우 수동으로 수정이 가능합니다. 행 왼쪽(체크박스)을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
     
     # 에디터용 데이터프레임 생성
     df_editor = pd.DataFrame(st.session_state.ocr_results)
     if df_editor.empty:
-        df_editor = pd.DataFrame(columns=["과목명", "학점", "이수구분"])
+        df_editor = pd.DataFrame(columns=["강의의명", "학점", "이수구분"])
 
     edited_df = st.data_editor(
         df_editor, num_rows="dynamic", use_container_width=True,
@@ -236,7 +235,7 @@ with tab2:
         req_fail = []
         for item in gen.get("required_courses", []):
             if item['name'] == "리더십":
-                if leadership_count < 2: req_fail.append("리더십(RC포함 2과목)")
+                if leadership_count < 2: req_fail.append("리더십(RC) 2과목)")
                 continue
             if not any(normalize_string(kw) in normalize_string(search_names) for kw in item["keywords"]):
                 req_fail.append(item['name'])
@@ -250,6 +249,7 @@ with tab2:
 
         is_all_pass = all([pass_total, pass_major_total, pass_major_req, pass_advanced, pass_req_courses])
 
+        st.info("ℹ️ 본 진단 결과는 참고용이며, 정확한 졸업 여부는 학과 사무실을 통해 최종확인하시기 바랍니다.")
         st.header("🏁 졸업 자격 예비진단 리포트")
         if is_all_pass: 
             st.success("🎉 축하합니다! 모든 졸업 요건을 충족했습니다."); st.balloons()
@@ -267,8 +267,8 @@ with tab2:
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("총 취득학점", f"{int(total_sum)} / {criteria['total_credits']}", delta=int(total_sum - criteria['total_credits']))
         m2.metric("전공 합계", f"{int(maj_total_sum)} / {criteria['major_total']}")
-        m3.metric("3~4천단위(심화)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
-        m4.metric("리더십(RC 포함)", f"{leadership_count} / 2")
+        m3.metric("3~4000단위(심화전공)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
+        m4.metric("리더십(RC과목)", f"{leadership_count} / 2")
 
         # 세부 보완 사항 안내
         if not is_all_pass:
@@ -276,7 +276,7 @@ with tab2:
                 if not pass_major_req:
                     st.warning(f"📍 **전공필수 학점**이 {int(criteria['major_required'] - maj_req)}학점 부족합니다.")
                 if not pass_advanced:
-                    st.warning(f"📍 **3000~4000단위(심화) 학점**이 {int(criteria['advanced_course'] - advanced_sum)}학점 부족합니다.")
+                    st.warning(f"📍 **3000~4000단위(심화전) 학점**이 {int(criteria['advanced_course'] - advanced_sum)}학점 부족합니다.")
                 if req_fail:
                     st.error(f"📍 **미이수 필수 요건:** {', '.join(req_fail)}")
             
@@ -284,4 +284,3 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
