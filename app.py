@@ -71,10 +71,10 @@ def ocr_image_parsing(image_file, year, dept):
     """이미지 전처리 및 OCR 파싱"""
     try:
         img = Image.open(image_file).convert('L')
-            if img.width > 1000:
-                ratio = 1000 / float(img.width)
-                new_height = int(float(img.height) * ratio)
-                img = img.resize((1000, new_height), Image.Resampling.LANCZOS)
+        if img.width > 1000:
+            ratio = 1000 / float(img.width)
+            new_height = int(float(img.height) * ratio)
+            img = img.resize((1000, new_height), Image.Resampling.LANCZOS)
         img = ImageOps.autocontrast(img)
         img = ImageEnhance.Contrast(img).enhance(2.0)
         # PSM 6: 단일 텍스트 블록으로 가정하여 인식률 향상
@@ -284,3 +284,4 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
