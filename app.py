@@ -40,14 +40,12 @@ def show_bug_report_dialog(year, dept):
     st.code("- 오류 현상:\n- 기대 결과:\n- 첨부파일 여부(에타 캡쳐본 등):", language="text")
 
 def classify_course_logic(course_name, year, version, dept):
-    """[분류 로직] RC 우선 및 DB 키워드 매칭"""
     norm_name = normalize_string(course_name)
 
-    # 1. RC 특별 처리 (리더십으로 분류)
+    # 1. RC/리더십 예외 처리
     if "RC" in norm_name or "리더십" in norm_name:
         return "교양(리더십)"
-        
-    # 접근 경로를 db[year][version][dept]로 수정
+
     try:
         dept_db = db[year][version][dept]
     except KeyError:
@@ -55,17 +53,23 @@ def classify_course_logic(course_name, year, version, dept):
 
     known = dept_db.get("known_courses", {})
 
-    # 2. 전공 필수/선택 체크
+    # [개선] 2. 전공 필수 체크
     for req in known.get("major_required", []):
-        if normalize_string(req) in norm_name: return "전공필수"
-    for sel in known.get("major_elective", []):
-        if normalize_string(sel) in norm_name: return "전공선택"
+        if normalize_string(req) in norm_name: 
+            return "전공필수"
 
-    # 3. 교양 영역 체크
-    for area, courses in db.get("area_courses", {}).items():
-        for c in courses:
-            if normalize_string(c) in norm_name: return f"교양({area})"
+    # [개선] 3. 전공 선택 체크 (임상실습 키워드 강화)
+    major_sel_list = known.get("major_elective", [])
+    for sel in major_sel_list:
+        if normalize_string(sel) in norm_name: 
+            return "전공선택"
+    
+    # [추가] 4. 특정 키워드 강제 매칭 (보조 장치)
+    if "임상실습" in norm_name or "임상병리사" in norm_name:
+        return "전공선택"
 
+    # 5. 교양 영역 체크 (기존과 동일)
+    # ...
     return "교양/기타"
 
 def ocr_image_parsing(image_file, year, version, dept):
@@ -338,6 +342,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
