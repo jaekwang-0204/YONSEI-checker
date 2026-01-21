@@ -198,8 +198,6 @@ tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 강의 수정 및 최종 
 with tab1:
     if st.button("🖼️ 캡쳐 방법 안내"):
         show_capture_guide()
-        
-    img_files = st.file_uploader("에브리타임 학점계산기 캡쳐 이미지 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
 
     img_files = st.file_uploader("에브리타임 학점계산기 캡쳐 이미지 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
     if img_files and st.button("🔍 성적 이미지 분석 실행"):
@@ -370,7 +368,8 @@ with tab2:
         # 중복 수강은 없다고 가정하고, 키워드가 포함된 서로 다른 강의 수를 카운트
         dev_count = 0
         for kw in career_dev_keywords:
-            if any(kw in name for name in all_course_names):
+            # kw를 normalize_string(kw)로 감싸서 name과 형식을 맞춥니다.
+            if any(normalize_string(kw) in name for name in all_course_names):
                 dev_count += 1
     
         if dev_count < 2:
@@ -448,16 +447,3 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
-
-
-
-
-
-
-
-
-
-
-
-
