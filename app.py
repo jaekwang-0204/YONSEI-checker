@@ -69,21 +69,28 @@ def classify_course_logic(course_name, year, dept):
 def ocr_image_parsing(image_file, year, dept):
     """이미지 전처리 및 OCR 파싱"""
     try:
+        # 이미지 로드 및 이진화
         img = Image.open(image_file).convert('L')
-        if img.width > 1000:
-            ratio = 1000 / float(img.width)
+
+        # 이미지 리사이징: 1500px
+        if img.width > 1500:
+            ratio = 1500 / float(img.width)
             new_height = int(float(img.height) * ratio)
-            img = img.resize((1000, new_height), Image.Resampling.LANCZOS)
+            img = img.resize((1500, new_height), Image.Resampling.LANCZOS)
+            
+        # 이미지 전처리
+        img = ImageEnhance.Sharpness(img).enhance(2.0) #선명도 상향
         img = ImageOps.autocontrast(img)
-        img = ImageEnhance.Contrast(img).enhance(2.0)
-        # PSM 6: 단일 텍스트 블록으로 가정하여 인식률 향상
+        img = ImageEnhance.Contrast(img).enhance(2.5) #대비 상향
+        
+        # OCR 설정 최적화
         # [최적화] 인식 범위를 화이트리스트로 제한하여 속도 향상
-        custom_config = '--psm 6 -c tessedit_char_whitelist=0123456789.가-힣abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()'
+        custom_config = '--psm 6 --oem 3'
         text = pytesseract.image_to_string(img, lang='kor+eng', config=custom_config)
         
         parsed_data = []
         for line in text.split('\n'):
-            # 패턴: (과목명) (학점) 순서
+            # 패턴: (강의명) (학점) 순서
             match = re.search(r'^(.*?)\s+(\d+(?:\.\d+)?)(?:\s+.*)?$', line.strip())
             if match:
                 raw_name = match.group(1).strip()
@@ -94,7 +101,7 @@ def ocr_image_parsing(image_file, year, dept):
                 if len(raw_name) < 2 or raw_name.isdigit(): continue
                 
                 ftype = classify_course_logic(raw_name, year, dept)
-                parsed_data.append({"과목명": raw_name, "학점": credit, "이수구분": ftype})
+                parsed_data.append({"강의명": raw_name, "학점": credit, "이수구분": ftype})
         return parsed_data
     except: return []
 
@@ -117,7 +124,7 @@ with st.sidebar:
 st.title("🎓 연세대 임상병리학과 졸업요건 예비진단")
 st.info("에브리타임 학점계산기(성적 화면) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
 
-tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 과목 수정 및 최종 진단"])
+tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 강의 수정 및 최종 진단"])
 
 with tab1:
     img_files = st.file_uploader("에브리타임 학점계산기 캡쳐 이미지 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
@@ -129,27 +136,27 @@ with tab1:
                 result = ocr_image_parsing(img, selected_year, selected_dept)
                 all_results.extend(result)
                             
-            # 과목명 기준 중복 제거 및 세션 상태 저장
+            # 강의명 기준 중복 제거 및 세션 상태 저장
             if all_results:
                 df_all = pd.DataFrame(all_results)
                 
                 # 1. "채플"이 포함된 행들만 따로 추출 (중복 제거 제외 대상)
                 # normalize_string을 사용하여 '채플', '채플(1)' 등을 모두 잡습니다.
-                is_chapel = df_all['과목명'].apply(lambda x: "채플" in x)
+                is_chapel = df_all['강의명'].apply(lambda x: "채플" in x)
                 df_chapel = df_all[is_chapel]
                 
-                # 2. 채플이 아닌 나머지 과목들만 추출하여 중복 제거 수행
-                df_others = df_all[~is_chapel].drop_duplicates(subset=['과목명'])
+                # 2. 채플이 아닌 나머지 강의들만 추출하여 중복 제거 수행
+                df_others = df_all[~is_chapel].drop_duplicates(subset=['강의명'])
                 
                 # 3. 두 데이터프레임을 다시 합치기
                 df_final = pd.concat([df_chapel, df_others], ignore_index=True)
                 
                 # 세션 상태에 저장
                 st.session_state.ocr_results = df_final.to_dict('records')
-                st.success(f"분석 완료! 총 {len(st.session_state.ocr_results)}개의 과목을 인식했습니다. (채플 포함)")                
+                st.success(f"분석 완료! 총 {len(st.session_state.ocr_results)}개의 강의을 인식했습니다. (채플 포함)")                
 
 with tab2:
-    st.markdown("### 📝 수강 과목 관리")
+    st.markdown("### 📝 수강 강의 관리")
 
     # --- 교과과정 이미지 출력 로직 추가 ---
     img_path = f"images/{selected_year}_{selected_dept}.png"
@@ -204,11 +211,11 @@ with tab2:
         norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_raw])), key=len)
         
         advanced_sum = 0.0
-        detected_advanced = [] # 어떤 과목이 심화로 판정됐는지 기록
+        detected_advanced = [] # 어떤 강의이 심화로 판정됐는지 기록
 
         # st.data_editor의 결과인 edited_df를 직접 한 행씩 분석
         for index, row in edited_df.iterrows():
-            c_name = str(row['과목명']).strip()
+            c_name = str(row['강의명']).strip()
             c_type = str(row['이수구분']).strip()
             
             # 학점 데이터를 float으로 안전하게 변환
@@ -219,7 +226,7 @@ with tab2:
                 
             norm_name = normalize_string(c_name)
             
-            # [핵심 3] 매칭 검사 (키워드가 과목명 안에 포함되어 있는가?)
+            # [핵심 3] 매칭 검사 (키워드가 강의명 안에 포함되어 있는가?)
             is_advanced_by_key = False
             if norm_name:
                 for kw in norm_adv_keywords:
@@ -227,8 +234,8 @@ with tab2:
                         is_advanced_by_key = True
                         break
                         
-            # [판정 로직 2] 이수구분 기반 매칭 (전공이면서 기초과목이 아닌 경우)
-            # 임상병리학과 1학년 과목(해부, 조직)은 심화에서 제외하는 방어 로직          
+            # [판정 로직 2] 이수구분 기반 매칭 (전공이면서 기초강의이 아닌 경우)
+            # 임상병리학과 1학년 강의(해부, 조직)은 심화에서 제외하는 방어 로직          
             is_major = "전공" in c_type
             basic_list = ["인체해부학", "의학용어", "해부학", "세포생물학", "병리학", "미생물학"]
             is_exactly_basic = any(c_name == basic for basic in basic_list) or (c_name == "조직학")
@@ -243,13 +250,13 @@ with tab2:
                 detected_advanced.append(c_name)
             
         # 3. 리더십 및 필수교양 체크
-        leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['과목명'])])
+        leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
         
-        search_names = " ".join([c['과목명'] for c in final_courses])
+        search_names = " ".join([c['강의명'] for c in final_courses])
         req_fail = []
         for item in gen.get("required_courses", []):
             if item['name'] == "리더십":
-                if leadership_count < 2: req_fail.append("리더십(RC) 2과목)")
+                if leadership_count < 2: req_fail.append("리더십(RC) 2강의)")
                 continue
             if not any(normalize_string(kw) in normalize_string(search_names) for kw in item["keywords"]):
                 req_fail.append(item['name'])
@@ -273,16 +280,16 @@ with tab2:
         # --- 메시지 출력 위치 ---
         # ⚠️ Metric 대시보드보다 위에 출력되도록 위치 조정
         if detected_advanced:
-            st.info(f"✅ **심화 판정된 과목:** {', '.join(detected_advanced)}")
+            st.info(f"✅ **심화 판정된 강의:** {', '.join(detected_advanced)}")
         else:
-            st.warning("⚠️ **심화로 인식된 과목이 없습니다.** 테이블의 과목명에 '임상화학', '분자진단' 등이 포함되어 있는지 확인해주세요.")
+            st.warning("⚠️ **심화로 인식된 강의이 없습니다.** 테이블의 강의명에 '임상화학', '분자진단' 등이 포함되어 있는지 확인해주세요.")
             
         # 대시보드 레이아웃 (4열 구성)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("총 취득학점", f"{int(total_sum)} / {criteria['total_credits']}", delta=int(total_sum - criteria['total_credits']))
         m2.metric("전공 합계", f"{int(maj_total_sum)} / {criteria['major_total']}")
         m3.metric("3~4000단위(심화전공)", f"{int(advanced_sum)} / {criteria['advanced_course']}", delta=int(advanced_sum - criteria['advanced_course']), delta_color="normal")
-        m4.metric("리더십(RC과목)", f"{leadership_count} / 2")
+        m4.metric("리더십(RC강의)", f"{leadership_count} / 2")
 
         # 세부 보완 사항 안내
         if not is_all_pass:
@@ -294,8 +301,9 @@ with tab2:
                 if req_fail:
                     st.error(f"📍 **미이수 필수 요건:** {', '.join(req_fail)}")
             
-        with st.expander("📊 수강 과목 상세 통계"):
+        with st.expander("📊 수강 강의 상세 통계"):
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
