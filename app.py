@@ -117,7 +117,7 @@ with st.sidebar:
     
     if db:
         # 1단계: 년도(학번) 선택 (area_courses 제외한 최상위 키)
-        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=True)
+        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=False)
         selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="s_year_final")
         
         # 2단계: 세부 판정 기준 선택 (db[년도]의 하위 키들)
@@ -196,7 +196,7 @@ with tab2:
     try:
         # 이미지를 불러와서 가이드로 표시
         guide_img = Image.open(img_path)
-        st.image(guide_img, caption=f"📖 {selected_year}학번 {selected_dept} 교과과정 (전공 가이드)", use_container_width=True)    
+        st.image(guide_img, caption=f"📖 {selected_year}학번 {selected_dept} 교과과정 (전공 가이드)", use_container_width=400)    
     except FileNotFoundError:
         st.caption(f"ℹ️ {selected_year}학번 교과과정 이미지가 images 폴더에 없습니다. (파일명 예시: {selected_year}_{selected_dept}.png)")
     except Exception as e:
@@ -338,6 +338,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
