@@ -286,19 +286,39 @@ with tab2:
 
         # 3. 필수 과목 이수 여부 체크 (이수구분까지 확인)
         req_fail = []
+
+        all_course_names_text = " ".join([normalize_string(c['강의명']) for c in final_courses])
+        all_names_text = " ".join(all_course_names
+        
         # 리더십 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
-    
-        for item in gen.get("required_courses", []):
-            all_course_names_text = " ".join([normalize_string(c['강의명']) for c in final_courses])
-  
-            if item['name'] == "리더십":
-                if leadership_count < 2: req_fail.append("리더십(RC) 2강의")
-                continue
+        if leadership_count < 2:
+            req_fail.append("리더십(RC) 2강의")
+            continue
+
+        career_design_keywords = ["진로지도", "진로설계"]
+        has_career_design = any(any(kw in name for kw in career_design_keywords) for name in all_course_names)
+        if not has_career_design:
+            req_fail.append("RC진로설계 (임상병리사진로지도)")
+
+        # [3] RC경력개발 체크 (3개 중 2개 필수)
+        # 대상: 커리어디자인, 산업과기업의이해, 공공기관의이해
+        career_dev_keywords = ["커리어디자인", "산업과기업의이해", "공공기관의이해"]
+        # 중복 수강은 없다고 가정하고, 키워드가 포함된 서로 다른 강의 수를 카운트
+        dev_count = 0
+        for kw in career_dev_keywords:
+            if any(kw in name for name in all_course_names):
+                dev_count += 1
                 
-            # 일반 필수교양은 강의명 키워드로 체크
-            if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
-                req_fail.append(item['name'])
+        if dev_count < 2:
+            req_fail.append(f"RC경력개발 ({dev_count}/2개 이수 중)")
+
+        # [4] 대학학문의세계 체크 (1개 필수)
+        if "대학학문의세계" not in all_names_text:
+            req_fail.append("대학학문의세계")
+        # 일반 필수교양은 강의명 키워드로 체크
+        if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
+            req_fail.append(item['name'])
                 
         # [필수 2] 진로경력 및 기타 필수교양 체크 로직 강화
         # JSON의 keywords(예: 진로지도, 커리어디자인) 중 하나라도 강의명에 포함되어 있는지 확인
@@ -362,6 +382,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
