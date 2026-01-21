@@ -110,21 +110,19 @@ with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
-        # 1. 'area_courses'를 제외한 모든 키(학번+버전) 가져오기
+        # 1. 'area_courses'를 제외한 모든 키 가져오기
         all_keys = [k for k in db.keys() if k != "area_courses"]
             
-        # 2. 숫자 학번만 추출 (예: "2022(졸업요건)" -> "2022")
-        # 중복 제거 후 오름차순 정렬
-        years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=False)
+        # 2. 숫자 학번만 추출 (정규표현식으로 괄호 제거)
+        years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=True)
             
-        # [위젯 1] 입학년도(학번) 선택
+        # [위젯 1] 입학년도 선택
         selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only, key="year_num_select")
         
-        # [위젯 2] 2단계: 해당 학번의 세부 버전 필터링 (예: 2020(졸업요건), 2020(진단세포학...))
-        # 선택된 숫자 학번으로 시작하는 모든 키를 리스트업
+        # 3. 해당 학번에 해당하는 세부 버전 필터링
         available_versions = [k for k in all_keys if k.startswith(selected_year_num)]
         
-        # 버전이 여러 개일 때만 선택박스를 보여주거나, 가독성을 위해 이름을 정리해서 보여줌
+        # [위젯 2] 세부 판정 기준 선택
         selected_full_key = st.selectbox(
             "2️⃣ 세부 판정 기준", 
             available_versions,
@@ -132,9 +130,21 @@ with st.sidebar:
             key="full_key_select"
         )
         
-        # [위젯 3] 전공 선택
-        depts = list(db[selected_year].keys()) if selected_year in db else ["-"]
-        selected_dept = st.selectbox("3️⃣ 전공 선택", depts)
+        # 핵심: 분석 로직에서 사용할 변수를 여기서 확정합니다.
+        selected_year = selected_full_key
+        
+        # [위젯 3] 전공 선택 (selected_year 확정 후 실행되어야 함)
+        if selected_year in db:
+            depts = list(db[selected_year].keys())
+            # 리스트가 비어있지 않은지 확인
+            if depts:
+                selected_dept = st.selectbox("3️⃣ 전공 선택", depts, key="dept_select")
+            else:
+                st.warning("⚠️ 선택한 기준에 등록된 전공 데이터가 없습니다.")
+                selected_dept = "-"
+        else:
+            selected_dept = "-"
+            
     else:
         st.error("requirements.json을 로드할 수 없습니다.")
         selected_year = "2022"
@@ -338,6 +348,3 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
-
-
