@@ -109,7 +109,7 @@ def ocr_image_parsing(image_file, year, dept):
 with st.sidebar:
     st.header("⚙️ 설정")
     
-if db:
+    if db:
         # 1. 'area_courses'를 제외한 실제 JSON 키값들 (예: "2020(졸업요건 기준)")
         all_keys = [k for k in db.keys() if k != "area_courses"]
             
@@ -346,5 +346,6 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
