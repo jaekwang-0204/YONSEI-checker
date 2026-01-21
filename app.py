@@ -295,7 +295,14 @@ with tab2:
         # 전공필수 체크
         for mr_course in known.get("major_required", []):
             norm_mr = normalize_string(mr_course)
-            if not any(norm_mr in normalize_string(c['강의명']) for c in final_courses):
+    
+            # 강의명이 포함되어 있으면서, 사용자가 '전공필수'로 설정한 과목이 있는지 확인
+            is_in_table = any(
+                norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
+                for c in final_courses
+            )
+    
+            if not is_in_table:
                 req_fail.append(f"전공필수({mr_course})")
 
         # 최종 판정 로직
@@ -342,6 +349,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
