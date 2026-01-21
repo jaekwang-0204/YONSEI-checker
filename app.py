@@ -250,56 +250,56 @@ with tab2:
         norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_raw])), key=len)
 
         # 2. 모든 강의를 한 번에 순회하며 학점 합산 (중요!)
-    for c in final_courses:
-        c_name = str(c['강의명']).strip()
-        c_credit = float(c['학점'])
-        c_type = str(c['이수구분']).strip()
-        norm_name = normalize_string(c_name)
+        for c in final_courses:
+            c_name = str(c['강의명']).strip()
+            c_credit = float(c['학점'])
+            c_type = str(c['이수구분']).strip()
+            norm_name = normalize_string(c_name)
 
-        total_sum += c_credit
+            total_sum += c_credit
 
-        # [수정] 사용자가 테이블에서 선택한 '이수구분'을 최우선으로 반영
-        if c_type == "전공필수":
-            maj_req += c_credit
-        elif c_type == "전공선택":
-            maj_sel += c_credit
+            # [수정] 사용자가 테이블에서 선택한 '이수구분'을 최우선으로 반영
+            if c_type == "전공필수":
+                maj_req += c_credit
+            elif c_type == "전공선택":
+                maj_sel += c_credit
 
-        # 심화 학점 판정 (기존 로직 유지)
-        is_advanced_by_key = any(kw in norm_name for kw in norm_adv_keywords)
-        is_major = "전공" in c_type
-        basic_list = ["인체해부학", "의학용어", "해부학", "세포생물학", "병리학", "미생물학", "조직학"]
-        is_basic = any(basic == c_name for basic in basic_list)
-        is_advanced_work = any(word in c_name for word in ["진단", "종합설계", "임상실습"])
+            # 심화 학점 판정 (기존 로직 유지)
+            is_advanced_by_key = any(kw in norm_name for kw in norm_adv_keywords)
+            is_major = "전공" in c_type
+            basic_list = ["인체해부학", "의학용어", "해부학", "세포생물학", "병리학", "미생물학", "조직학"]
+            is_basic = any(basic == c_name for basic in basic_list)
+            is_advanced_work = any(word in c_name for word in ["진단", "종합설계", "임상실습"])
 
-        if is_advanced_by_key or (is_major and not (is_basic and not is_advanced_work)):
-            advanced_sum += c_credit
-            detected_advanced.append(c_name)
+            if is_advanced_by_key or (is_major and not (is_basic and not is_advanced_work)):
+                advanced_sum += c_credit
+                detected_advanced.append(c_name)
 
-    maj_total_sum = maj_req + maj_sel
+        maj_total_sum = maj_req + maj_sel
 
-    # 3. 필수 과목 이수 여부 체크 (이수구분까지 확인)
-    req_fail = []
-    # 리더십 체크
-    leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
+        # 3. 필수 과목 이수 여부 체크 (이수구분까지 확인)
+        req_fail = []
+        # 리더십 체크
+        leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
     
-    for item in gen.get("required_courses", []):
-        if item['name'] == "리더십":
-            if leadership_count < 2: req_fail.append("리더십(RC) 2강의")
-            continue
-        # 일반 필수교양은 강의명 키워드로 체크
-        if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
-            req_fail.append(item['name'])
+        for item in gen.get("required_courses", []):
+            if item['name'] == "리더십":
+                if leadership_count < 2: req_fail.append("리더십(RC) 2강의")
+                continue
+            # 일반 필수교양은 강의명 키워드로 체크
+            if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
+                req_fail.append(item['name'])
 
-    # [핵심] 전공필수 과목 체크: 강의명 매칭 + 이수구분이 '전공필수'여야 함
-    for mr_course in known.get("major_required", []):
-        norm_mr = normalize_string(mr_course)
-        is_passed = any(
-            norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
-            for c in final_courses
-        )
-        if not is_passed:
-            req_fail.append(f"전공필수({mr_course})")
-
+        # [핵심] 전공필수 과목 체크: 강의명 매칭 + 이수구분이 '전공필수'여야 함
+        for mr_course in known.get("major_required", []):
+            norm_mr = normalize_string(mr_course)
+            is_passed = any(
+                norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
+                for c in final_courses
+            )
+            if not is_passed:
+                req_fail.append(f"전공필수({mr_course})")
+    
         # 최종 판정 로직
         pass_total = total_sum >= criteria['total_credits']
         pass_major_total = maj_total_sum >= criteria['major_total']
@@ -344,4 +344,5 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
