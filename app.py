@@ -290,12 +290,23 @@ with tab2:
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
     
         for item in gen.get("required_courses", []):
+            all_course_names_text = " ".join([normalize_string(c['강의명']) for c in final_courses])
+  
             if item['name'] == "리더십":
                 if leadership_count < 2: req_fail.append("리더십(RC) 2강의")
                 continue
+                
             # 일반 필수교양은 강의명 키워드로 체크
             if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
                 req_fail.append(item['name'])
+                
+        # [필수 2] 진로경력 및 기타 필수교양 체크 로직 강화
+        # JSON의 keywords(예: 진로지도, 커리어디자인) 중 하나라도 강의명에 포함되어 있는지 확인
+        is_satisfied = any(normalize_string(kw) in all_course_names_text for kw in item["keywords"])
+    
+        if not is_satisfied:
+            # 미이수 시 JSON에 정의된 이름(예: 진로경력)을 에러 리스트에 추가
+            req_fail.append(item['name'])
 
         # [핵심] 전공필수 과목 체크: 강의명 매칭 + 이수구분이 '전공필수'여야 함
         for mr_course in known.get("major_required", []):
@@ -351,6 +362,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
