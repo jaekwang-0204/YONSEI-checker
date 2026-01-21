@@ -116,7 +116,7 @@ with st.sidebar:
     st.header("⚙️ 설정")
     with st.expander("ℹ️ 프로그램 정보"):
         st.write("""        
-        연세포탈 상의 자가진단 결과에 오류가 많아 졸업을 준비할 때 많은 어려움과 복잡함을 느꼈습니다. 
+        졸업을 준비할 당시, 연세포탈 상의 자가진단 결과에 오류가 잦아 많은 불편함과 복잡함을 느꼈습니다. 
         
         타학우분들 또한 같은 불편함을 겪으실 것이라 생각되어 이를 해소해드리고자 제작 및 배포합니다. 
 
@@ -416,6 +416,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
