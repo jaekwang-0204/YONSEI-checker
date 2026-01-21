@@ -229,7 +229,7 @@ with tab2:
             "강의명": st.column_config.TextColumn(
                 "강의명",
                 help="입력 후 Enter를 눌러 확정해주세요.",
-                max_chars=15,
+                max_chars=50,
                 validate="^[가-힣a-zA-Z0-9\s]*$" # 한글/영문/숫자 허용 정규식
             ),
             "학점": st.column_config.NumberColumn("학점", step=0.5, format="%.1f"),
@@ -241,6 +241,22 @@ with tab2:
             ])
         }, key="main_editor"
     )
+    st.markdown("---")
+    st.subheader("➕ 과목 직접 추가")
+    col1, col2, col3 = st.columns([3, 1, 2])
+    
+    with col1:
+        new_name = st.text_input("강의명", placeholder="예: 진단세포학및실험")
+    with col2:
+        new_credit = st.number_input("학점", min_value=0.0, max_value=5.0, step=0.5, value=3.0)
+    with col3:
+        new_type = st.selectbox("이수구분", ["전공필수", "전공선택", "교양/기타"])
+        
+    if st.button("추가하기"):
+        if new_name:
+            new_row = {"강의명": new_name, "학점": new_credit, "이수구분": new_type}
+            st.session_state.ocr_results.append(new_row)
+            st.rerun()
 
     # --- 5. 최종 분석 결과 표시 (심화학점 포함) ---
     st.divider()
@@ -390,6 +406,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
