@@ -286,9 +286,9 @@ with tab2:
 
         # 3. 필수 과목 이수 여부 체크 (이수구분까지 확인)
         req_fail = []
-
-        all_course_names_text = " ".join([normalize_string(c['강의명']) for c in final_courses])
-        all_names_text = " ".join(all_course_names)
+        
+        all_course_names = [normalize_string(c['강의명']) for c in final_courses] # 리스트 먼저 정의
+        all_names_text = " ".join(all_course_names) # 그 다음 문자열로 합치기
         
         # 리더십 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
@@ -384,3 +384,4 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
