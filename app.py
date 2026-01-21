@@ -260,7 +260,12 @@ with tab2:
                 continue
             if not any(normalize_string(kw) in normalize_string(search_names) for kw in item["keywords"]):
                 req_fail.append(item['name'])
-
+        # 전공필수 체크
+        for mr_course in known.get("major_required", []):
+            norm_mr = normalize_string(mr_course)
+            if not any(norm_mr in normalize_string(c['강의명']) for c in final_courses):
+                req_fail.append(f"전공필수({mr_course})")
+                
         # 최종 판정 로직
         pass_total = total_sum >= criteria['total_credits']
         pass_major_total = maj_total_sum >= criteria['major_total']
@@ -305,5 +310,6 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
