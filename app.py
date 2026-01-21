@@ -225,12 +225,19 @@ with tab2:
 
     # --- 5. 최종 분석 결과 표시 (심화학점 포함) ---
     st.divider()
-    final_courses = edited_df.to_dict('records')
+    if not edited_df.empty:
+        final_courses = edited_df.to_dict('records')
 
-    if final_courses:
         criteria = db[selected_year][selected_version][selected_dept]
         gen = criteria.get("general_education", {})
         known = criteria.get("known_courses", {})
+
+        # 1. 기본 학점 변수 초기화
+        total_sum = 0.0
+        maj_req = 0.0
+        maj_sel = 0.0
+        advanced_sum = 0.0
+        detected_advanced = []
 
         # 1. 일반 학점 계산
         total_sum = sum(c['학점'] for c in final_courses)
@@ -242,68 +249,56 @@ with tab2:
         adv_keywords_raw = known.get("advanced_keywords", [])
         norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_raw])), key=len)
 
-        advanced_sum = 0.0
-        detected_advanced = [] # 어떤 강의이 심화로 판정됐는지 기록
+        # 2. 모든 강의를 한 번에 순회하며 학점 합산 (중요!)
+    for c in final_courses:
+        c_name = str(c['강의명']).strip()
+        c_credit = float(c['학점'])
+        c_type = str(c['이수구분']).strip()
+        norm_name = normalize_string(c_name)
 
-        # st.data_editor의 결과인 edited_df를 직접 한 행씩 분석
-        for index, row in edited_df.iterrows():
-            c_name = str(row['강의명']).strip()
-            c_type = str(row['이수구분']).strip()
+        total_sum += c_credit
 
-            # 학점 데이터를 float으로 안전하게 변환
-            try:
-                c_credit = float(row['학점'])
-            except:
-                c_credit = 0.0
+        # [수정] 사용자가 테이블에서 선택한 '이수구분'을 최우선으로 반영
+        if c_type == "전공필수":
+            maj_req += c_credit
+        elif c_type == "전공선택":
+            maj_sel += c_credit
 
-            norm_name = normalize_string(c_name)
+        # 심화 학점 판정 (기존 로직 유지)
+        is_advanced_by_key = any(kw in norm_name for kw in norm_adv_keywords)
+        is_major = "전공" in c_type
+        basic_list = ["인체해부학", "의학용어", "해부학", "세포생물학", "병리학", "미생물학", "조직학"]
+        is_basic = any(basic == c_name for basic in basic_list)
+        is_advanced_work = any(word in c_name for word in ["진단", "종합설계", "임상실습"])
 
-            # [핵심 3] 매칭 검사 (키워드가 강의명 안에 포함되어 있는가?)
-            is_advanced_by_key = False
-            if norm_name:
-                for kw in norm_adv_keywords:
-                    if kw in norm_name: # 예: "분자진단" in "분자진단학및실험"
-                        is_advanced_by_key = True
-                        break
+        if is_advanced_by_key or (is_major and not (is_basic and not is_advanced_work)):
+            advanced_sum += c_credit
+            detected_advanced.append(c_name)
 
-            # [판정 로직 2] 이수구분 기반 매칭 (전공이면서 기초강의이 아닌 경우)
-            # 임상병리학과 1학년 강의(해부, 조직)은 심화에서 제외하는 방어 로직          
-            is_major = "전공" in c_type
-            basic_list = ["인체해부학", "의학용어", "해부학", "세포생물학", "병리학", "미생물학"]
-            is_exactly_basic = any(c_name == basic for basic in basic_list) or (c_name == "조직학")
+    maj_total_sum = maj_req + maj_sel
 
-            #진단조직학 심화전공 판정 기준 강화
-            is_advanced_work = any(word in c_name for word in ["진단", "종합설계"])
-
-            is_basic = is_exactly_basic and not is_advanced_work
-
-            if is_advanced_by_key or (is_major and not is_basic):
-                advanced_sum += c_credit
-                detected_advanced.append(c_name)
-
-        # 3. 리더십 및 필수교양 체크
-        leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
-
-        search_names = " ".join([c['강의명'] for c in final_courses])
-        req_fail = []
-        for item in gen.get("required_courses", []):
-            if item['name'] == "리더십":
-                if leadership_count < 2: req_fail.append("리더십(RC) 2강의)")
-                continue
-            if not any(normalize_string(kw) in normalize_string(search_names) for kw in item["keywords"]):
-                req_fail.append(item['name'])
-        # 전공필수 체크
-        for mr_course in known.get("major_required", []):
-            norm_mr = normalize_string(mr_course)
+    # 3. 필수 과목 이수 여부 체크 (이수구분까지 확인)
+    req_fail = []
+    # 리더십 체크
+    leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
     
-            # 강의명이 포함되어 있으면서, 사용자가 '전공필수'로 설정한 과목이 있는지 확인
-            is_in_table = any(
-                norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
-                for c in final_courses
-            )
-    
-            if not is_in_table:
-                req_fail.append(f"전공필수({mr_course})")
+    for item in gen.get("required_courses", []):
+        if item['name'] == "리더십":
+            if leadership_count < 2: req_fail.append("리더십(RC) 2강의")
+            continue
+        # 일반 필수교양은 강의명 키워드로 체크
+        if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
+            req_fail.append(item['name'])
+
+    # [핵심] 전공필수 과목 체크: 강의명 매칭 + 이수구분이 '전공필수'여야 함
+    for mr_course in known.get("major_required", []):
+        norm_mr = normalize_string(mr_course)
+        is_passed = any(
+            norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
+            for c in final_courses
+        )
+        if not is_passed:
+            req_fail.append(f"전공필수({mr_course})")
 
         # 최종 판정 로직
         pass_total = total_sum >= criteria['total_credits']
@@ -349,15 +344,4 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
-
-
-
-
-
-
-
-
-
-
 
