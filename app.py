@@ -29,7 +29,7 @@ def normalize_string(s):
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s).upper()
 
 # --- 가이드 팝업 함수 정의 ---
-@st.dialog("💡 에브리타임 캡쳐 가이드")
+@st.dialog("🔎 에브리타임 캡쳐 가이드")
 def show_capture_guide():
     st.write("인식률을 높이려면 아래 예시와 같이 **과목명과 학점**이 명확히 보이게 캡쳐해 주세요.")
     
@@ -447,3 +447,4 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
