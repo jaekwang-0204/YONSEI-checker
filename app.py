@@ -226,6 +226,11 @@ with tab2:
     edited_df = st.data_editor(
         df_editor, num_rows="dynamic", use_container_width=True,
         column_config={
+            "강의명": st.column_config.TextColumn(
+                "강의명",
+                help="입력 후 Enter를 눌러 확정해주세요.",
+                max_chars=15,
+                validate="^[가-힣a-zA-Z0-9\s]*$" # 한글/영문/숫자 허용 정규식
             "학점": st.column_config.NumberColumn("학점", step=0.5, format="%.1f"),
             "이수구분": st.column_config.SelectboxColumn("이수구분", options=[
                 "전공필수", "전공선택", "교양(리더십)", "교양(문학과예술)", "교양(인간과역사)", 
@@ -384,4 +389,5 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
