@@ -108,14 +108,15 @@ def ocr_image_parsing(image_file, year, dept):
 # --- 3. 사이드바 구성 ---
 with st.sidebar:
     st.header("⚙️ 설정")
-if db:
+    
+    if db:
         # 1. 'area_courses'를 제외한 모든 키(학번+버전) 가져오기
         all_keys = [k for k in db.keys() if k != "area_courses"]
-        
+            
         # 2. 숫자 학번만 추출 (예: "2022(졸업요건)" -> "2022")
         # 중복 제거 후 내림차순 정렬
         years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=True)
-        
+            
         # [위젯 1] 입학년도(학번) 선택
         selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only)
         
@@ -129,7 +130,7 @@ if db:
         
         # [데이터 할당] 이제 'selected_year'는 사용자가 선택한 세부 버전 키가 됩니다.
         selected_year = selected_full_key
-        
+            
         # [위젯 3] 전공 선택
         depts = list(db[selected_year].keys()) if selected_year in db else ["-"]
         selected_dept = st.selectbox("3️⃣ 전공 선택", depts)
@@ -137,6 +138,7 @@ if db:
         st.error("requirements.json을 로드할 수 없습니다.")
         selected_year = "2022"
         selected_dept = "-"
+        
     st.divider()
     if st.button("🔄 모든 데이터 초기화"):
         st.session_state.ocr_results = []
@@ -335,4 +337,5 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
