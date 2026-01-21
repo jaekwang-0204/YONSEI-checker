@@ -110,16 +110,17 @@ with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
-        # 1. 'area_courses'를 제외한 모든 키 가져오기
+        # 1. 'area_courses'를 제외한 모든 키 추출
         all_keys = [k for k in db.keys() if k != "area_courses"]
             
-        # 2. 숫자 학번만 추출 (정규표현식으로 괄호 제거)
-        years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=True)
+        # 2. 숫자 학번만 추출 (예: "2020(졸업요건 기준)" -> "2020")
+        # 정규표현식 대신 split을 사용하여 '(' 이전 문자열만 가져옴
+        years_only = sorted(list(set([k.split('(')[0] for k in all_keys])), reverse=False)
             
         # [위젯 1] 입학년도 선택
         selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only, key="year_num_select")
         
-        # 3. 해당 학번에 해당하는 세부 버전 필터링
+        # 3. 해당 학번에 해당하는 세부 버전 필터링 (예: 2020(졸업요건), 2020(진단세포학...))
         available_versions = [k for k in all_keys if k.startswith(selected_year_num)]
         
         # [위젯 2] 세부 판정 기준 선택
@@ -130,25 +131,18 @@ with st.sidebar:
             key="full_key_select"
         )
         
-        # 핵심: 분석 로직에서 사용할 변수를 여기서 확정합니다.
+        # 분석 로직에서 사용할 학번 키 확정
         selected_year = selected_full_key
         
-        # [위젯 3] 전공 선택 (selected_year 확정 후 실행되어야 함)
+        # [위젯 3] 전공 선택 (학번 키 확정 후 로드)
         if selected_year in db:
-            depts = list(db[selected_year].keys())
-            # 리스트가 비어있지 않은지 확인
-            if depts:
-                selected_dept = st.selectbox("3️⃣ 전공 선택", depts, key="dept_select")
-            else:
-                st.warning("⚠️ 선택한 기준에 등록된 전공 데이터가 없습니다.")
-                selected_dept = "-"
+            dept_options = list(db[selected_year].keys())
+            selected_dept = st.selectbox("3️⃣ 전공 선택", dept_options, key="dept_select")
         else:
             selected_dept = "-"
-            
     else:
-        st.error("requirements.json을 로드할 수 없습니다.")
-        selected_year = "2022"
-        selected_dept = "-"
+        st.error("requirements.json 로드 실패")
+        selected_year, selected_dept = "2019", "-"
         
     st.divider()
     if st.button("🔄 모든 데이터 초기화"):
@@ -348,3 +342,4 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
