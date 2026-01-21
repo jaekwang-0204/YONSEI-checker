@@ -114,23 +114,24 @@ with st.sidebar:
         all_keys = [k for k in db.keys() if k != "area_courses"]
             
         # 2. 숫자 학번만 추출 (예: "2022(졸업요건)" -> "2022")
-        # 중복 제거 후 내림차순 정렬
-        years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=True)
+        # 중복 제거 후 오름차순 정렬
+        years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=False)
             
         # [위젯 1] 입학년도(학번) 선택
-        selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only)
+        selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only, key="year_num_select")
         
-        # 3. 선택한 학번에 해당하는 세부 버전들 필터링
-        # 예: "2022"를 선택하면 ["2022(졸업요건)", "2022(진단세포학 임시삭제)"]가 나옴
+        # [위젯 2] 2단계: 해당 학번의 세부 버전 필터링 (예: 2020(졸업요건), 2020(진단세포학...))
+        # 선택된 숫자 학번으로 시작하는 모든 키를 리스트업
         available_versions = [k for k in all_keys if k.startswith(selected_year_num)]
         
-        # [위젯 2] 세부 졸업 판정 기준 선택
-        # 만약 버전이 하나뿐이라면 굳이 선택할 필요 없지만, 사용자님의 경우 여기서 분기가 일어납니다.
-        selected_full_key = st.selectbox("2️⃣ 세부 판정 기준", available_versions)
+        # 버전이 여러 개일 때만 선택박스를 보여주거나, 가독성을 위해 이름을 정리해서 보여줌
+        selected_full_key = st.selectbox(
+            "2️⃣ 세부 판정 기준", 
+            available_versions,
+            index=0,
+            key="full_key_select"
+        )
         
-        # [데이터 할당] 이제 'selected_year'는 사용자가 선택한 세부 버전 키가 됩니다.
-        selected_year = selected_full_key
-            
         # [위젯 3] 전공 선택
         depts = list(db[selected_year].keys()) if selected_year in db else ["-"]
         selected_dept = st.selectbox("3️⃣ 전공 선택", depts)
@@ -337,5 +338,6 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
