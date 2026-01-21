@@ -103,17 +103,26 @@ def ocr_image_parsing(image_file, year_key, dept):
 with st.sidebar:
     st.header("⚙️ 설정")
     all_keys = [k for k in db.keys() if k != "area_courses"]
+    
     if not all_keys:
-        st.error("requirements.json 로드 실패 혹은 데이터가 없습니다.")
+        st.error("requirements.json 데이터가 없습니다.")
         st.stop()
 
-    # 입학연도 숫자만 추출
-    years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=True)
+    # 입학연도 숫자 추출
+    years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=false)
     selected_year_num = st.selectbox("입학년도", years_only)
+
+    #졸업 기준 텍스트 추출
+    relevant_full_keys = [k for k in all_keys if k.startswith(selected_year_num)]
     
-    # 해당 연도의 졸업 판정 기준 버전 필터링
-    available_versions = [k for k in all_keys if k.startswith(selected_year_num)]
-    selected_full_key = st.selectbox("졸업 판정 기준", available_versions)
+    def extract_version_text(full_key):
+        match = re.search(r'\((.*?)\)', full_key)
+        return match.group(1) if match else full_key
+        
+    version_map = {extract_version_text(k): k for k in relevant_full_keys}
+    selected_version_text = st.selectbox("졸업 판정 기준", list(version_map.keys()))
+
+    selected_full_key = version_map[selected_version_text]
     
     # 전공 선택 (수정된 포인트: selected_full_key 사용)
     dept_options = list(db[selected_full_key].keys()) if selected_full_key in db else ["-"]
@@ -265,3 +274,4 @@ with tab2:
                 if not pass_major_req: st.warning(f"📍 전공필수 학점 부족")
                 if not pass_advanced: st.warning(f"📍 심화전공 학점 부족")
                 if req_fail: st.error(f"📍 미이수 필수 요건: {', '.join(req_fail)}")
+
