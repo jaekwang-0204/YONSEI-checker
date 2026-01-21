@@ -293,8 +293,7 @@ with tab2:
         # 리더십 체크
         leadership_count = len([c for c in final_courses if "리더십" in str(c['이수구분']) or "RC" in normalize_string(c['강의명'])])
         if leadership_count < 2:
-            req_fail.append("리더십(RC) 2강의")
-            continue
+            req_fail.append(f"리더십(개발/실습) ({leadership_count}/2강의 이수)")
 
         career_design_keywords = ["진로지도", "진로설계"]
         has_career_design = any(any(kw in name for kw in career_design_keywords) for name in all_course_names)
@@ -305,38 +304,41 @@ with tab2:
         # 대상: 커리어디자인, 산업과기업의이해, 공공기관의이해
         career_dev_keywords = ["커리어디자인", "산업과기업의이해", "공공기관의이해"]
         # 중복 수강은 없다고 가정하고, 키워드가 포함된 서로 다른 강의 수를 카운트
-        dev_count = 0
-        for kw in career_dev_keywords:
-            if any(kw in name for name in all_course_names):
-                dev_count += 1
-                
-        if dev_count < 2:
-            req_fail.append(f"RC경력개발 ({dev_count}/2개 이수 중)")
+    dev_count = 0
+    for kw in career_dev_keywords:
+        if any(kw in name for name in all_course_names):
+            dev_count += 1
 
-        # [4] 대학학문의세계 체크 (1개 필수)
-        if "대학학문의세계" not in all_names_text:
-            req_fail.append("대학학문의세계")
-        # 일반 필수교양은 강의명 키워드로 체크
-        if not any(any(normalize_string(kw) in normalize_string(c['강의명']) for kw in item["keywords"]) for c in final_courses):
-            req_fail.append(item['name'])
-                
-        # [필수 2] 진로경력 및 기타 필수교양 체크 로직 강화
-        # JSON의 keywords(예: 진로지도, 커리어디자인) 중 하나라도 강의명에 포함되어 있는지 확인
-        is_satisfied = any(normalize_string(kw) in all_course_names_text for kw in item["keywords"])
-    
+    if dev_count < 2:
+        req_fail.append(f"RC경력개발 ({dev_count}/2개 이수 중)")
+
+    # [4] 대학학문의세계 체크 (1개 필수)
+    if "대학학문의세계" not in all_names_text:
+        req_fail.append("대학학문의세계")
+
+    # [5] 기타 JSON 정의 필수교양 체크 (중복 로직 통합)
+    # gen.get("required_courses")를 순회하며 위에서 개별 체크한 항목(리더십, 진로경력, 대학학문)을 제외한 나머지만 체크
+    for item in gen.get("required_courses", []):
+        item_name = item['name']
+        # 이미 위에서 정밀하게 체크한 항목은 건너뜀
+        if item_name in ["리더십", "진로경력", "대학학문"]:
+            continue
+        
+        is_satisfied = any(any(normalize_string(kw) in name for kw in item["keywords"]) for name in all_course_names)
         if not is_satisfied:
-            # 미이수 시 JSON에 정의된 이름(예: 진로경력)을 에러 리스트에 추가
-            req_fail.append(item['name'])
+            req_fail.append(item_name)
 
-        # [핵심] 전공필수 과목 체크: 강의명 매칭 + 이수구분이 '전공필수'여야 함
-        for mr_course in known.get("major_required", []):
-            norm_mr = normalize_string(mr_course)
-            is_passed = any(
-                norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
-                for c in final_courses
-            )
-            if not is_passed:
-                req_fail.append(f"전공필수({mr_course})")
+    # [6] 전공필수 과목 체크 (이수구분 확인 포함)
+    # 임상병리학과 전공필수(진단세포학 등)를 정확히 판정합니다
+    for mr_course in known.get("major_required", []):
+        norm_mr = normalize_string(mr_course)
+        # 강의명이 매칭되면서 사용자가 '전공필수'로 설정했는지 확인
+        is_passed = any(
+            norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
+            for c in final_courses
+        )
+        if not is_passed:
+            req_fail.append(f"전공필수({mr_course})")
     
         # 최종 판정 로직
         pass_total = total_sum >= criteria['total_credits']
@@ -382,6 +384,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
