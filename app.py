@@ -46,11 +46,13 @@ def classify_course_logic(course_name, year, version, dept):
     # 1. RC 특별 처리 (리더십으로 분류)
     if "RC" in norm_name or "리더십" in norm_name:
         return "교양(리더십)"
-
-    if year not in db or dept not in db[year]:
+        
+    # 접근 경로를 db[year][version][dept]로 수정
+    try:
+        dept_db = db[year][version][dept]
+    except KeyError:
         return "교양/기타"
 
-    dept_db = db[year][version][dept]
     known = dept_db.get("known_courses", {})
 
     # 2. 전공 필수/선택 체크
@@ -105,32 +107,22 @@ def ocr_image_parsing(image_file, year, version, dept):
         return parsed_data
     except: return []
 
-# --- 3. 사이드바 구성 ---
 # --- 3. 사이드바 구성 (최종 교정 버전) ---
 with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
         # 1단계: 년도(학번) 선택
-        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=True)
-        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="v_year_select")
+        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=False)
+        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="s_year")
         
-        # 2단계: 세부 판정 기준 선택
-        if selected_year in db:
-            # db[2021].keys() -> ['졸업요건 기준', '진단세포학 임시삭제']
-            versions_list = list(db[selected_year].keys())
-            selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="v_version_select")
-        else:
-            selected_version = None
+        # db[2021].keys() -> ['졸업요건 기준', '진단세포학 임시삭제']
+        versions_list = list(db[selected_year].keys())
+        selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="s_version")
 
-        # 3단계: 전공 선택
-        if selected_year and selected_version:
-            # db[2021][졸업요건 기준].keys() -> ['임상병리학과']
-            dept_list = list(db[selected_year][selected_version].keys())
-            selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="v_dept_select")
-        else:
-            selected_dept = "-"
-            
+
+        dept_list = list(db[selected_year][selected_version].keys())
+        selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="s_dept")            
     else:
         st.error("requirements.json을 불러올 수 없습니다.")
         selected_year, selected_version, selected_dept = "2025", "-", "-"
@@ -333,6 +325,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
