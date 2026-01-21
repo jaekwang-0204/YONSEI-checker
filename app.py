@@ -29,7 +29,7 @@ def normalize_string(s):
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s).upper()
 
 # --- 가이드 팝업 함수 정의 ---
-@st.dialog("📸 에브리타임 캡쳐 가이드")
+@st.dialog("💡 에브리타임 캡쳐 가이드")
 def show_capture_guide():
     st.write("인식률을 높이려면 아래 예시와 같이 **과목명과 학점**이 명확히 보이게 캡쳐해 주세요.")
     
@@ -192,6 +192,11 @@ st.info("""
 2. **에브리타임 학점계산기(성적 화면)** 캡쳐본을 업로드 후 분석을 실행합니다. (여러 장 업로드 시 모든 학기를 통합 분석합니다.)
 3. **강의 수정 및 최종 진단** 탭에서 인식된 강의 정보를 검토하고 최종 결과를 확인하세요.
 """)
+
+if st.button("🖼️ 캡쳐 방법 안내"):
+        show_capture_guide()
+        
+    img_files = st.file_uploader("에브리타임 학점계산기 캡쳐 이미지 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
 
 tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 강의 수정 및 최종 진단"])
 
@@ -443,6 +448,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
