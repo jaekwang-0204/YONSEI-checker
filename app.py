@@ -109,21 +109,25 @@ def ocr_image_parsing(image_file, year, dept):
 with st.sidebar:
     st.header("⚙️ 설정")
     
-    if db:
-        # 1. 'area_courses'를 제외한 모든 키 추출
+if db:
+        # 1. 'area_courses'를 제외한 실제 JSON 키값들 (예: "2020(졸업요건 기준)")
         all_keys = [k for k in db.keys() if k != "area_courses"]
             
-        # 2. 숫자 학번만 추출 (예: "2020(졸업요건 기준)" -> "2020")
-        # 정규표현식 대신 split을 사용하여 '(' 이전 문자열만 가져옴
-        years_only = sorted(list(set([k.split('(')[0] for k in all_keys])), reverse=False)
+        # 2. 숫자 학번만 추출 (1단계용 리스트)
+        # 중복 제거 후 내림차순 정렬 (최신 학번이 위로)
+        years_only = sorted(list(set([k.split('(')[0] for k in all_keys])), reverse=True)
             
-        # [위젯 1] 입학년도 선택
+        # [위젯 1] 1단계: 입학년도 선택
         selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only, key="year_num_select")
         
-        # 3. 해당 학번에 해당하는 세부 버전 필터링 (예: 2020(졸업요건), 2020(진단세포학...))
-        available_versions = [k for k in all_keys if k.startswith(selected_year_num)]
+        # [위젯 2] 2단계: 선택된 학번 숫자로 시작하는 세부 기준 필터링
+        # 예: "2020"을 선택하면 ["2020(졸업요건 기준)", "2020(진단세포학 임시삭제)"]만 추출
+        available_versions = sorted([k for k in all_keys if k.startswith(selected_year_num)])
         
-        # [위젯 2] 세부 판정 기준 선택
+        # ⚠️ 중요: 만약 필터링된 결과가 없다면 기본값 처리
+        if not available_versions:
+            available_versions = [selected_year_num]
+
         selected_full_key = st.selectbox(
             "2️⃣ 세부 판정 기준", 
             available_versions,
@@ -131,10 +135,10 @@ with st.sidebar:
             key="full_key_select"
         )
         
-        # 분석 로직에서 사용할 학번 키 확정
+        # 분석 로직 및 이미지 경로에서 사용할 최종 키 확정
         selected_year = selected_full_key
         
-        # [위젯 3] 전공 선택 (학번 키 확정 후 로드)
+        # [위젯 3] 3단계: 전공 선택 (최종 키에 해당하는 데이터 로드)
         if selected_year in db:
             dept_options = list(db[selected_year].keys())
             selected_dept = st.selectbox("3️⃣ 전공 선택", dept_options, key="dept_select")
@@ -342,4 +346,5 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
