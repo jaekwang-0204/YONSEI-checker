@@ -194,26 +194,27 @@ with tab2:
     img_path = f"images/{selected_year}_{selected_dept}.png"
 
     try:
-    guide_img = Image.open(img_path)
+        guide_img = Image.open(img_path)
     
-    # 사이즈 조절 (이전 가이드 적용)
-    target_width = 500
-    width_percent = (target_width / float(guide_img.size[0]))
-    target_height = int((float(guide_img.size[1]) * float(width_percent)))
-    resized_img = guide_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        # 사이즈 조절 (이전 가이드 적용)
+        target_width = 500
+        width_percent = (target_width / float(guide_img.size[0]))
+        target_height = int((float(guide_img.size[1]) * float(width_percent)))
+        resized_img = guide_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
-    # [수정] 학번에 따른 캡션 분기 처리
-    # 2021년 미만인 경우 안내 문구 추가
-    if int(re.sub(r'[^0-9]', '', selected_year)) < 2021:
-        img_caption = f"📖 {selected_year}학번 가이드 (2021년도 자료 임시 적용)"
-    else:
-        img_caption = f"📖 {selected_year}학번 {selected_dept} 교과과정 가이드"
+        # [수정] 학번에 따른 캡션 분기 처리
+        # 2021년 미만인 경우 안내 문구 추가
+        if int(re.sub(r'[^0-9]', '', selected_year)) < 2021:
+            img_caption = f"📖 {selected_year}학번 가이드 (2021년도 자료 임시 적용)"
+        else:
+            img_caption = f"📖 {selected_year}학번 {selected_dept} 교과과정 가이드"
 
-    # 이미지 출력
-    st.image(resized_img, caption=img_caption)
+        # 이미지 출력
+        st.image(resized_img, caption=img_caption)
 
-except FileNotFoundError:
-    st.caption(f"ℹ️ {selected_year}학번 가이드 이미지가 준비되지 않았습니다.")
+    except FileNotFoundError:
+        st.caption(f"ℹ️ {selected_year}학번 가이드 이미지가 준비되지 않았습니다.")
+        
     st.divider()
     st.caption("OCR 인식 결과(강의명, 학점, 이수구분 등)가 정확하지 않을 경우 수동으로 수정이 가능합니다. 행 왼쪽(체크박스)을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
 
@@ -350,6 +351,7 @@ except FileNotFoundError:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
