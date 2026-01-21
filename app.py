@@ -39,7 +39,7 @@ def show_bug_report_dialog(year, dept):
     st.caption("3. 본문 내용")
     st.code("- 오류 현상:\n- 기대 결과:\n- 첨부파일 여부(에타 캡쳐본 등):", language="text")
 
-def classify_course_logic(course_name, year, dept):
+def classify_course_logic(course_name, year, version, dept):
     """[분류 로직] RC 우선 및 DB 키워드 매칭"""
     norm_name = normalize_string(course_name)
 
@@ -50,7 +50,7 @@ def classify_course_logic(course_name, year, dept):
     if year not in db or dept not in db[year]:
         return "교양/기타"
 
-    dept_db = db[year][dept]
+    dept_db = db[year][version][dept]
     known = dept_db.get("known_courses", {})
 
     # 2. 전공 필수/선택 체크
@@ -66,7 +66,7 @@ def classify_course_logic(course_name, year, dept):
 
     return "교양/기타"
 
-def ocr_image_parsing(image_file, year, dept):
+def ocr_image_parsing(image_file, year, version, dept):
     """이미지 전처리 및 OCR 파싱"""
     try:
         # 이미지 로드 및 이진화
@@ -100,7 +100,7 @@ def ocr_image_parsing(image_file, year, dept):
                 if credit < 0 or credit > 5.0: continue
                 if len(raw_name) < 2 or raw_name.isdigit(): continue
 
-                ftype = classify_course_logic(raw_name, year, dept)
+                ftype = classify_course_logic(raw_name, year, version, dept)
                 parsed_data.append({"강의명": raw_name, "학점": credit, "이수구분": ftype})
         return parsed_data
     except: return []
@@ -110,38 +110,17 @@ with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
-        # 1. 'area_courses'를 제외한 JSON의 모든 원본 키를 가져옵니다.
-        # 예: ["2019(졸업요건 기준)", "2019(진단세포학 임시삭제)", "2020(졸업요건 기준)", ...]
-        all_origin_keys = [k for k in db.keys() if k != "area_courses"]
-            
-        # 2. 1단계: 화면에 보여줄 '숫자 학번'만 추출하여 정렬합니다.
-        years_display = sorted(list(set([k.split('(')[0] for k in all_origin_keys])), reverse=True)
-            
-        # [위젯 1] 입학년도 선택 (예: 2020)
-        selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_display, key="v_year_num")
-        
-        # 3. 2단계: 선택된 숫자(예: 2020)로 시작하는 '원본 키'들만 필터링합니다.
-        # 여기서 ["2020(졸업요건 기준)", "2020(진단세포학 임시삭제)"]가 정확히 추출됩니다.
-        available_versions = sorted([k for k in all_origin_keys if k.startswith(selected_year_num)])
-        
-        # [위젯 2] 세부 판정 기준 선택
-        # 필터링된 원본 키 리스트를 그대로 사용하므로 '숫자'만 뜨는 현상이 해결됩니다.
-        selected_full_key = st.selectbox(
-            "2️⃣ 세부 판정 기준", 
-            available_versions,
-            key="v_full_key"
-        )
-        
-        # 분석 로직에서 사용할 최종 키값 확정
-        selected_year = selected_full_key
-        
-        # 4. 3단계: 전공 선택 (2차원 매핑: db[버전키][전공키])
-        if selected_year in db:
-            dept_options = list(db[selected_year].keys())
-            selected_dept = st.selectbox("3️⃣ 전공 선택", dept_options, key="v_dept")
-        else:
-            selected_dept = "-"
-            
+        # 1. 년도 선택
+        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=True)
+        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="v_year")
+
+        # 2. 버전 선택 (선택된 년도 안의 키들)
+        versions_list = list(db[selected_year].keys())
+        selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="v_version")
+    
+        # 3. 전공 선택 (선택된 버전 안의 키들)
+        dept_list = list(db[selected_year][selected_version].keys())
+        selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="v_dept")           
     else:
         st.error("requirements.json 로드 실패")
         selected_year, selected_dept = "2025", "-"
@@ -167,7 +146,7 @@ with tab1:
 
         with st.spinner(f"총 {len(img_files)}장의 이미지를 분석 중입니다..."):
             for img in img_files: 
-                result = ocr_image_parsing(img, selected_year, selected_dept)
+                result = ocr_image_parsing(img, selected_year, selected_version, selected_dept)
                 all_results.extend(result)
 
             # 강의명 기준 중복 제거 및 세션 상태 저장
@@ -230,7 +209,7 @@ with tab2:
     final_courses = edited_df.to_dict('records')
 
     if final_courses:
-        criteria = db[selected_year][selected_dept]
+        criteria = db[selected_year][selected_version][selected_dept]
         gen = criteria.get("general_education", {})
         known = criteria.get("known_courses", {})
 
@@ -344,6 +323,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
