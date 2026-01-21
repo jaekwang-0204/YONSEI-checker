@@ -110,40 +110,48 @@ with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
-        # 1. 'area_courses'를 제외한 전체 키 목록 (실제 JSON 키값들)
-        all_real_keys = [k for k in db.keys() if k != "area_courses"]
-            
-        # 2. 1단계: 사용자에게 보여줄 '순수 학번' 리스트 생성
-        # "2020(졸업요건)" -> "2020"으로 잘라서 중복 제거
-        display_years = sorted(list(set([k.split('(')[0] for k in all_real_keys])), reverse=True)
-            
-        selected_year_num = st.selectbox("1️⃣ 입학년도 선택", display_years, key="year_num_select")
+        # 1. 'area_courses' 제외한 실제 키값들
+        all_keys = [k for k in db.keys() if k != "area_courses"]
         
-        # 3. 2단계: 선택된 '2020'으로 시작하는 실제 JSON 키들을 모두 찾음
-        # 이 과정에서 "2020(졸업요건)", "2020(임시삭제)" 등이 필터링됨
-        available_versions = [k for k in all_real_keys if k.startswith(selected_year_num)]
+        # 2. 1단계: 숫자 학번만 추출
+        years_only = sorted(list(set([k.split('(')[0] for k in all_keys])), reverse=True)
         
-        # 위젯 2에서 실제 JSON 키값(설명이 포함된 이름)을 그대로 노출
+        # 학번 선택 (on_change를 사용하지 않고도 연동되도록 구성)
+        selected_year_num = st.selectbox("1️⃣ 입학년도 선택", years_only, key="v_year_num")
+        
+        # 3. 2단계: 선택된 학번 숫자로 시작하는 실제 키들 필터링
+        available_versions = sorted([k for k in all_keys if k.startswith(selected_year_num)])
+        
+        # 위젯 2: 필터링된 결과(예: 2020(졸업요건...))를 그대로 노출
+        # index=0으로 설정하여 1단계가 바뀔 때 첫 번째 항목을 자동 선택하게 함
         selected_full_key = st.selectbox(
             "2️⃣ 세부 판정 기준", 
-            available_versions, # 여기서 숫자만 나오는 문제를 해결
-            key="full_key_select"
+            available_versions,
+            key="v_full_key"
         )
         
-        # 4. 3단계: 선택된 풀 키(selected_full_key)를 사용하여 전공 목록 로드
-        # selected_full_key가 "2020(진단세포학 임시삭제)"라면 db["2020(진단세포학 임시삭제)"]에 접근
+        # 4. 3단계: 2차원 매핑 (db[버전키][전공키])
+        # 선택된 full_key가 db에 존재하는지 확인 후 전공 리스트 추출
         if selected_full_key in db:
             dept_options = list(db[selected_full_key].keys())
-            selected_dept = st.selectbox("3️⃣ 전공 선택", dept_options, key="dept_select")
             
-            # 최종 변수 확정
-            selected_year = selected_full_key 
+            # 전공 선택
+            selected_dept = st.selectbox(
+                "3️⃣ 전공 선택", 
+                dept_options, 
+                key="v_dept"
+            )
+            
+            # 이후 로직에서 사용할 최종 변수 확정
+            selected_year = selected_full_key
         else:
+            st.warning("데이터 매핑 오류: 전공 정보를 찾을 수 없습니다.")
             selected_dept = "-"
+            selected_year = selected_full_key
     else:
-        st.error("requirements.json 로드 실패")
-        selected_year, selected_dept = "2019", "-"
-        
+        st.error("requirements.json을 로드할 수 없습니다.")
+        selected_year, selected_dept = "2025", "-"
+
     st.divider()
     if st.button("🔄 모든 데이터 초기화"):
         st.session_state.ocr_results = []
@@ -342,6 +350,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
