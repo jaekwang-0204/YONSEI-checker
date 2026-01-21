@@ -112,26 +112,39 @@ with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
-        # 1단계: 년도(학번) 선택
-        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=False)
-        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="s_year")
+        # 1단계: 년도(학번) 선택 (area_courses 제외한 최상위 키)
+        years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=True)
+        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="s_year_final")
         
-        # db[2021].keys() -> ['졸업요건 기준', '진단세포학 임시삭제']
-        versions_list = list(db[selected_year].keys())
-        selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="s_version")
+        # 2단계: 세부 판정 기준 선택 (db[년도]의 하위 키들)
+        # 예: ['졸업요건 기준', '진단세포학 임시삭제']
+        if selected_year in db:
+            versions_list = list(db[selected_year].keys())
+            selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="s_version_final")
+        else:
+            selected_version = None
 
-
-        dept_list = list(db[selected_year][selected_version].keys())
-        selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="s_dept")            
+        # 3단계: 전공 선택 (db[년도][버전]의 하위 키들)
+        # 예: ['임상병리학과']
+        if selected_year and selected_version:
+            # 여기서 db[selected_year][selected_version]을 읽어야 
+            # 'total_credits'가 아닌 '임상병리학과'가 옵션으로 나옵니다.
+            dept_list = list(db[selected_year][selected_version].keys())
+            selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="s_dept_final")
+        else:
+            selected_dept = "-"
+            
     else:
-        st.error("requirements.json을 불러올 수 없습니다.")
+        st.error("requirements.json 로드 실패. 파일 경로와 형식을 확인하세요.")
         selected_year, selected_version, selected_dept = "2025", "-", "-"
 
     st.divider()
-    if st.button("🔄 데이터 초기화"):
+    
+    # 캐시 비우기 및 초기화 버튼
+    if st.button("🔄 설정 초기화 및 새로고침"):
+        st.cache_data.clear() # 수정된 JSON을 새로 읽어오기 위해 필수
         st.session_state.ocr_results = []
         st.rerun()
-
     if st.button("🐛 버그 신고"):
         show_bug_report_dialog(selected_year, selected_dept)
 
@@ -325,6 +338,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
