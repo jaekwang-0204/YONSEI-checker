@@ -28,6 +28,26 @@ def normalize_string(s):
     if not isinstance(s, str): return ""
     return re.sub(r'[^가-힣a-zA-Z0-9]', '', s).upper()
 
+# --- 가이드 팝업 함수 정의 ---
+@st.dialog("📸 에브리타임 캡쳐 가이드")
+def show_capture_guide():
+    st.write("인식률을 높이려면 아래 예시와 같이 **과목명과 학점**이 명확히 보이게 캡쳐해 주세요.")
+    
+    # 가이드 이미지 파일이 있다면 출력 (없을 경우 캡션으로 대체 가능)
+    try:
+        guide_example = Image.open("images/everytime_guide.png")
+        st.image(guide_example, caption="✅ 올바른 예시: 과목명과 학점이 한 줄에 위치")
+    except FileNotFoundError:
+        st.warning("⚠️ 'images/everytime_guide.png' 파일을 찾을 수 없습니다. 이미지를 준비해 주세요.")
+    
+    st.info("""
+    **💡 캡쳐 팁**
+    - 배경색이 복잡하지 않은 **기본 테마** 상태에서 캡쳐하는 것이 가장 좋습니다.
+    - 여러 학기 성적을 올리려면 학기별로 나누어 캡쳐 후 한꺼번에 업로드하세요.
+    """)
+    if st.button("확인했습니다"):
+        st.rerun()
+
 @st.dialog("🐛 버그 신고 및 문의")
 def show_bug_report_dialog(year, dept):
     st.write("시스템 오류가 발생했나요? 아래 정보를 복사해서 메일을 보내주세요.")
@@ -166,13 +186,18 @@ with st.sidebar:
 # --- 4. 메인 UI ---
 st.title("🎓 연세대 임상병리학과 졸업요건 예비진단")
 st.markdown("##### **Made by**: 이재광")
-st.info("에브리타임 학점계산기(성적 화면) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
+st.info("""
+**이용 가이드**
+1. 좌측 설정 탭(>>) 내에서 해당하는 **입학년도 및 세부 판정 기준**을 확인해 주세요.
+2. **에브리타임 학점계산기(성적 화면)** 캡쳐본을 업로드 후 분석을 실행합니다. (여러 장 업로드 시 모든 학기를 통합 분석합니다.)
+3. **강의 수정 및 최종 진단** 탭에서 인식된 강의 정보를 검토하고 최종 결과를 확인하세요.
+""")
 
 tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 강의 수정 및 최종 진단"])
 
 with tab1:
     img_files = st.file_uploader("에브리타임 학점계산기 캡쳐 이미지 (PNG, JPG)", type=['png','jpg','jpeg'], accept_multiple_files=True)
-    if img_files and st.button("🔍 성적 이미지지 분석 실행"):
+    if img_files and st.button("🔍 성적 이미지 분석 실행"):
         all_results = []
 
         with st.spinner(f"총 {len(img_files)}장의 이미지를 분석 중입니다..."):
@@ -418,6 +443,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
