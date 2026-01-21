@@ -6,7 +6,7 @@ import pytesseract
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
 
-st.set_page_config(page_title="연세대 졸업예비진단", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="연세대학교 졸업예비진단", page_icon="🎓", layout="wide")
 
 # --- 세션 상태 초기화 ---
 if 'ocr_results' not in st.session_state:
@@ -114,7 +114,12 @@ def ocr_image_parsing(image_file, year, version, dept):
 # --- 3. 사이드바 구성 (최종 교정 버전) ---
 with st.sidebar:
     st.header("⚙️ 설정")
-    
+    with st.expander("ℹ️ 프로그램 정보"):
+        st.write("""
+        제작자: 이재광
+        연세포탈 상의 자가진단 결과에 오류가 많아 졸업을 준비할 때 많은 어려움과 복잡함을 느꼈습니다. 타학우분들 또한 같은 불편함을 겪으실 것이라 생각되어 이를 해소해드리고자 제작 및 배포합니다. 
+        문의: jaekwang1164@gmail.com
+        """)
     if db:
         # 1단계: 년도(학번) 선택 (area_courses 제외한 최상위 키)
         years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=False)
@@ -154,6 +159,7 @@ with st.sidebar:
 
 # --- 4. 메인 UI ---
 st.title("🎓 연세대 임상병리학과 졸업요건 예비진단")
+st.markdown("##### Made by: 22 이재광")
 st.info("에브리타임 학점계산기(성적 화면) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
 
 tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 강의 수정 및 최종 진단"])
@@ -398,7 +404,7 @@ with tab2:
                 if not pass_major_req:
                     st.warning(f"📍 **전공필수 학점**이 {int(criteria['major_required'] - maj_req)}학점 부족합니다.")
                 if not pass_advanced:
-                    st.warning(f"📍 **3000~4000단위(심화전) 학점**이 {int(criteria['advanced_course'] - advanced_sum)}학점 부족합니다.")
+                    st.warning(f"📍 **3000~4000단위(심화전공) 학점**이 {int(criteria['advanced_course'] - advanced_sum)}학점 부족합니다.")
                 if req_fail:
                     st.error(f"📍 **미이수 필수 요건:** {', '.join(req_fail)}")
 
@@ -406,6 +412,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
