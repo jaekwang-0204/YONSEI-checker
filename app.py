@@ -108,8 +108,14 @@ def ocr_image_parsing(image_file, year, dept):
 # --- 3. 사이드바 구성 ---
 with st.sidebar:
     st.header("⚙️ 설정")
-    years = sorted([k for k in db.keys() if k != "area_courses"]) if db else ["2022"]
-    selected_year = st.selectbox("입학년도", years)
+    all_keys = [k for k in db.keys() if k != "area_courses"]
+    # 입학연도 구분
+    years_only = sorted(list(set([re.sub(r'\(.*?\)', '', k) for k in all_keys])), reverse=True)
+    selected_year_num = st.selectbox("입학년도", years_only)
+    #졸업기준 구분(졸업요건/진단세포학 임시삭제)
+    available_versions = [k for k in all_keys if k.startswith(selected_year_num)]
+    selected_full_key = st.selectbox("졸업 판정 기준", available_versions)
+    #전 구분
     selected_dept = st.selectbox("전공", list(db[selected_year].keys()) if selected_year in db else ["-"])
     
     st.divider()
@@ -310,6 +316,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
