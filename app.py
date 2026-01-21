@@ -194,13 +194,23 @@ with tab2:
     img_path = f"images/{selected_year}_{selected_dept}.png"
 
     try:
-        # 이미지를 불러와서 가이드로 표시
         guide_img = Image.open(img_path)
-        st.image(guide_img, caption=f"📖 {selected_year}학번 {selected_dept} 교과과정 (전공 가이드)", use_container_width=10)    
+    
+        # 원하는 가로 사이즈 설정 (예: 500px)
+        target_width = 500
+        
+        # 원본 비율 유지하며 높이 계산
+        width_percent = (target_width / float(guide_img.size[0]))
+        target_height = int((float(guide_img.size[1]) * float(width_percent)))
+    
+        # 이미지 리사이징 (LANCZOS 필터로 선명도 유지)
+        resized_img = guide_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+    
+        # 리사이징된 이미지 출력
+        st.image(resized_img, caption=f"📖 {selected_year} 가이드 (축소됨)")
+    
     except FileNotFoundError:
-        st.caption(f"ℹ️ {selected_year}학번 교과과정 이미지가 images 폴더에 없습니다. (파일명 예시: {selected_year}_{selected_dept}.png)")
-    except Exception as e:
-        st.caption("ℹ️ 교과과정(전공 가이드) 이미지를 불러오는 중 오류가 발생했습니다.")
+        st.caption("ℹ️ 가이드 이미지가 없습니다.")
 
     st.divider()
     st.caption("OCR 인식 결과(강의명, 학점, 이수구분 등)가 정확하지 않을 경우 수동으로 수정이 가능합니다. 행 왼쪽(체크박스)을 클릭하여 삭제하거나 하단에서 추가할 수 있습니다.")
@@ -338,6 +348,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
