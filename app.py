@@ -106,27 +106,37 @@ def ocr_image_parsing(image_file, year, version, dept):
     except: return []
 
 # --- 3. 사이드바 구성 ---
+# --- 3. 사이드바 구성 (최종 교정 버전) ---
 with st.sidebar:
     st.header("⚙️ 설정")
     
     if db:
-        # 1. 년도 선택
+        # 1단계: 년도(학번) 선택
         years_list = sorted([k for k in db.keys() if k != "area_courses"], reverse=True)
-        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="v_year")
+        selected_year = st.selectbox("1️⃣ 입학년도 선택", years_list, key="v_year_select")
+        
+        # 2단계: 세부 판정 기준 선택
+        if selected_year in db:
+            # db[2021].keys() -> ['졸업요건 기준', '진단세포학 임시삭제']
+            versions_list = list(db[selected_year].keys())
+            selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="v_version_select")
+        else:
+            selected_version = None
 
-        # 2. 버전 선택 (선택된 년도 안의 키들)
-        versions_list = list(db[selected_year].keys())
-        selected_version = st.selectbox("2️⃣ 세부 판정 기준", versions_list, key="v_version")
-    
-        # 3. 전공 선택 (선택된 버전 안의 키들)
-        dept_list = list(db[selected_year][selected_version].keys())
-        selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="v_dept")           
+        # 3단계: 전공 선택
+        if selected_year and selected_version:
+            # db[2021][졸업요건 기준].keys() -> ['임상병리학과']
+            dept_list = list(db[selected_year][selected_version].keys())
+            selected_dept = st.selectbox("3️⃣ 전공 선택", dept_list, key="v_dept_select")
+        else:
+            selected_dept = "-"
+            
     else:
-        st.error("requirements.json 로드 실패")
-        selected_year, selected_dept = "2025", "-"
+        st.error("requirements.json을 불러올 수 없습니다.")
+        selected_year, selected_version, selected_dept = "2025", "-", "-"
 
     st.divider()
-    if st.button("🔄 모든 데이터 초기화"):
+    if st.button("🔄 데이터 초기화"):
         st.session_state.ocr_results = []
         st.rerun()
 
@@ -323,6 +333,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
