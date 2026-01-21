@@ -117,6 +117,7 @@ with st.sidebar:
     with st.expander("ℹ️ 프로그램 정보"):
         st.write("""        
         **🎓 제작 배경**
+        
         졸업을 준비할 당시, 연세포탈 상의 자가진단 결과에 오류가 잦아 많은 불편함과 복잡함을 느꼈습니다. 
         
         저와 같은 고민을 하실 학우분들의 불편을 조금이나마 덜어드리고자 이 프로그램을 직접 제작하여 배포합니다.
@@ -164,7 +165,7 @@ with st.sidebar:
 
 # --- 4. 메인 UI ---
 st.title("🎓 연세대 임상병리학과 졸업요건 예비진단")
-st.markdown("##### **Made by**: 22 이재광")
+st.markdown("##### **Made by**: 이재광")
 st.info("에브리타임 학점계산기(성적 화면) 캡쳐본을 업로드해주세요. 여러 장 업로드 시 모든 학기를 통합 분석합니다.")
 
 tab1, tab2 = st.tabs(["📸 이미지 분석", "✏️ 강의 수정 및 최종 진단"])
@@ -417,6 +418,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
