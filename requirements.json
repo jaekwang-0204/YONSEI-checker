@@ -95,7 +95,7 @@
             {"name": "기독교", "count": 1, "keywords": ["기독교", "YHB1001"]},
             {"name": "영어", "count": 2, "keywords": ["교양영어", "YHG1001"]},
             {"name": "리더십", "count": 2, "keywords": ["리더십개발", "리더십실습", "RC"]},
-            {"name": "컴퓨팅사고", "count": 1, "keywords": ["컴퓨팅사고", "소프트웨어", "4차 산업혁명]},
+            {"name": "컴퓨팅사고", "count": 1, "keywords": ["컴퓨팅사고", "소프트웨어", "4차 산업혁명"]},
             {"name": "대학학문", "count": 1, "keywords": ["대학학문의세계"]},
             {"name": "진로경력", "count": 2, "keywords": ["진로지도", "경력개발"]}
           ]
