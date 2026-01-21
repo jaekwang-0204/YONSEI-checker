@@ -196,7 +196,7 @@ with tab2:
     try:
         # 이미지를 불러와서 가이드로 표시
         guide_img = Image.open(img_path)
-        st.image(guide_img, caption=f"📖 {selected_year}학번 {selected_dept} 교과과정 (전공 가이드)", use_container_width=400)    
+        st.image(guide_img, caption=f"📖 {selected_year}학번 {selected_dept} 교과과정 (전공 가이드)", use_container_width=200)    
     except FileNotFoundError:
         st.caption(f"ℹ️ {selected_year}학번 교과과정 이미지가 images 폴더에 없습니다. (파일명 예시: {selected_year}_{selected_dept}.png)")
     except Exception as e:
@@ -338,6 +338,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
