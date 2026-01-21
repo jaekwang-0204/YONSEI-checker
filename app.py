@@ -239,12 +239,6 @@ with tab2:
         advanced_sum = 0.0
         detected_advanced = []
 
-        # 1. 일반 학점 계산
-        total_sum = sum(c['학점'] for c in final_courses)
-        maj_req = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공필수")
-        maj_sel = sum(c['학점'] for c in final_courses if c['이수구분'] == "전공선택")
-        maj_total_sum = maj_req + maj_sel
-
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords_raw = known.get("advanced_keywords", [])
         norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_raw])), key=len)
@@ -344,5 +338,6 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
