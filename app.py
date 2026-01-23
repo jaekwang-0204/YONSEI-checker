@@ -124,11 +124,12 @@ def ocr_image_parsing(image_file, year, version, dept):
                 try:
                     credit = float(match.group(2))
                     if credit != 0: 
-                        if credit % 0.5 != 0 or credit <= 0.4 or credit > 5.0 or credit <= 0.4:
+                        if credit % 0.5 != 0 or credit < 0.5 or credit > 5.0 or credit < 0.5:
                             continue
                 except: continue
-                    
-                if len(raw_name) < 3 or raw_name.isdigit(): continue
+
+                if raw_name != "채플":
+                    if len(raw_name) < 3 or raw_name.isdigit(): continue
 
                 ftype = classify_course_logic(raw_name, year, version, dept)
                 parsed_data.append({"강의명": raw_name, "학점": credit, "이수구분": ftype})
@@ -482,6 +483,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
