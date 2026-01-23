@@ -332,17 +332,25 @@ with tab2:
                 selected_areas.add(area_name)
             
         # [영역 판정 로직] 
-        # 예: 11개 영역 중 4개 영역 필수인 경우
-        required_area_count = gen.get("required_area_count", 5) 
-        satisfied_areas = sorted(list(selected_areas))
         
-        if len(selected_areas) < required_area_count:
-            # 이수한 영역이 있으면 괄호 안에 나열하고, 없으면 '없음'으로 표시
-            areas_str = ", ".join(satisfied_areas) if satisfied_areas else "없음"
+        # 1. 대상 영역 및 이수 현황 정의
+        # 자연과우주, 생명과환경, 정보와기술을 제외한 7개 핵심 영역
+        target_areas = ["문학과예술", "인간과역사", "언어와표현", "가치와윤리", "국가와사회", "지역과세계", "체육과건강"]
+
+        # 사용자가 테이블에서 선택한 영역 중 7개 핵심 영역에 해당하는 것만 필터링
+        satisfied_core_areas = [area for area in selected_areas if area in target_areas]
+        satisfied_core_areas.sort() # 가나다순 정렬
+
+        # 2. 판정 로직 (7개 중 5개 필수)
+        required_core_count = 5
+        pass_areas = len(satisfied_core_areas) >= required_core_count
+        
+        if not pass_areas:
+            areas_str = ", ".join(satisfied_core_areas) if satisfied_core_areas else "없음"
             req_fail.append(
-                f"교양 이수영역 선택 미달: 현재 {len(selected_areas)}/{required_area_count}개 영역 이수 "
-                f"(완료 영역: {areas_str})"
-            )
+            f"교양 이수영역 선택 미달: 핵심 7개 영역 중 {len(satisfied_core_areas)}/{required_core_count}개 이수 "
+            f"(완료 영역: {areas_str})"
+        )
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords_raw = known.get("advanced_keywords", [])
@@ -482,6 +490,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
