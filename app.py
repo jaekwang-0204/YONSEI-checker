@@ -62,6 +62,14 @@ def show_bug_report_dialog(year, dept):
 def classify_course_logic(course_name, year, version, dept):
     norm_name = normalize_string(course_name)
 
+    # [추가] 교양 영역 자동 매칭 (JSON의 area_courses 기준)
+    area_db = db.get("area_courses", {})
+    for area_name, course_list in area_db.items():
+        # 영역별 강의 리스트를 순회하며 매칭 확인
+        for area_c in course_list:
+            if normalize_string(area_c) in norm_name:
+                return f"교양({area_name})"
+
     # 1. RC/리더십 예외 처리
     if "RC" in norm_name or "리더십" in norm_name:
         return "교양(리더십)"
@@ -490,6 +498,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
