@@ -325,8 +325,8 @@ with tab2:
             ftype = str(c['이수구분'])
             if "교양(" in ftype:
             # "교양(문학과예술)" -> "문학과예술"만 추출
-            area_name = ftype.split('(')[1].replace(')', '')
-            selected_areas.add(area_name)
+                area_name = ftype.split('(')[1].replace(')', '')
+                selected_areas.add(area_name)
             
         # [영역 판정 로직] 
         # 예: 11개 영역 중 4개 영역 필수인 경우
@@ -481,6 +481,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
