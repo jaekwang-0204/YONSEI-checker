@@ -483,13 +483,14 @@ with tab2:
                         st.error(f"❌ 미이수 필수 요건: **{fail_item}**")
 
                 # 이수 중인 영역 표시 (학우들 참고용)
-                if satisfied_areas:
-                    st.info(f"✅ 현재 이수 영역: {', '.join(satisfied_areas)}")
+                #if satisfied_areas:
+                #    st.info(f"✅ 현재 이수 영역: {', '.join(satisfied_areas)}")
 
         with st.expander("📊 수강 강의 상세 통계"):
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
