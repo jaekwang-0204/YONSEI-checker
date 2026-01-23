@@ -333,7 +333,7 @@ with tab2:
             
         # [영역 판정 로직] 
         # 예: 11개 영역 중 4개 영역 필수인 경우
-        required_area_count = gen.get("required_area_count", 4) 
+        required_area_count = gen.get("required_area_count", 5) 
         satisfied_areas = sorted(list(selected_areas))
         
         if len(selected_areas) < required_area_count:
@@ -484,4 +484,5 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
