@@ -319,6 +319,7 @@ with tab2:
         maj_sel = 0.0
         advanced_sum = 0.0
         detected_advanced = []
+        req_fail = []
 
         # [영역 판정용 변수]
         # 사용자가 선택한 이수구분 리스트에서 '교양('가 포함된 것만 추출
@@ -335,9 +336,6 @@ with tab2:
         required_area_count = gen.get("required_area_count", 4) 
         satisfied_areas = list(selected_areas)
         pass_areas = len(satisfied_areas) >= required_area_count
-
-        # [필수 과목 체크]
-        req_fail = []
 
         # 1. 교양 영역 미달 시 추가
         if not pass_areas:
@@ -376,8 +374,6 @@ with tab2:
         maj_total_sum = maj_req + maj_sel
 
         # 3. 필수 과목 이수 여부 체크 (이수구분까지 확인)
-        req_fail = []
-        
         all_course_names = [normalize_string(c['강의명']) for c in final_courses] # 리스트 먼저 정의
         all_names_text = " ".join(all_course_names) # 그 다음 문자열로 합치기
         
@@ -483,15 +479,3 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
-
-
-
-
-
-
-
-
-
-
-
