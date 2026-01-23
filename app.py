@@ -120,10 +120,13 @@ def ocr_image_parsing(image_file, year, version, dept):
             match = re.search(r'^(.*?)\s+(\d+(?:\.\d+)?)(?:\s+.*)?$', line.strip())
             if match:
                 raw_name = match.group(1).strip()
-                credit = float(match.group(2))
-
-                # 노이즈 필터링 (너무 짧거나 숫자만 있는 경우 제외)
-                if credit < 0 or credit > 5.0: continue
+                # 노이즈 필터링 (학점 != 0.5*n and 학점 > 5 필터링)
+                try:
+                    credit = float(match.group(2))
+                    if credit % 0.5 != 0 or credit < 0.5 or credit > 5.0:
+                        continue
+                except: continue
+                    
                 if len(raw_name) < 2 or raw_name.isdigit(): continue
 
                 ftype = classify_course_logic(raw_name, year, version, dept)
@@ -264,14 +267,11 @@ with tab2:
         df_editor = pd.DataFrame(columns=["강의명", "학점", "이수구분"])
 
     edited_df = st.data_editor(
-        df_editor, num_rows="dynamic", use_container_width=True,
+        df_editor, 
+        num_rows="dynamic", 
+        use_container_width=True,
         column_config={
-            "강의명": st.column_config.TextColumn(
-                "강의명",
-                help="입력 후 Enter를 눌러 확정해주세요.",
-                max_chars=50,
-                validate="^[가-힣a-zA-Z0-9\s]*$" # 한글/영문/숫자 허용 정규식
-            ),
+            "강의명": st.column_config.TextColumn("강의명", help="직접 수정 가능 (예: 임상화학() -> 임상화학및실험(1)", max_chars=15, validate="^[가-힣a-zA-Z0-9\s]*$"),
             "학점": st.column_config.NumberColumn("학점", step=0.5, format="%.1f"),
             "이수구분": st.column_config.SelectboxColumn("이수구분", options=[
                 "전공필수", "전공선택", "교양(리더십)", "교양(문학과예술)", "교양(인간과역사)", 
@@ -281,6 +281,9 @@ with tab2:
             ])
         }, key="main_editor"
     )
+    
+    st.session_state.ocr_results = edited_df.to_dict('records') #편집된 데이터를 즉시 세션에 저장하여 '추가하기' 버튼 클릭 시 초기화 방지
+    
     st.markdown("---")
     st.subheader("➕ 과목 직접 추가")
     col1, col2, col3 = st.columns([3, 1, 2])
@@ -301,6 +304,7 @@ with tab2:
     # --- 5. 최종 분석 결과 표시 (심화학점 포함) ---
     st.divider()
     if not edited_df.empty:
+
         final_courses = edited_df.to_dict('records')
 
         criteria = db[selected_year][selected_version][selected_dept]
@@ -313,6 +317,29 @@ with tab2:
         maj_sel = 0.0
         advanced_sum = 0.0
         detected_advanced = []
+
+        # [영역 판정용 변수]
+        # 사용자가 선택한 이수구분 리스트에서 '교양('가 포함된 것만 추출
+        selected_areas = set()
+        for c in final_courses:
+            ftype = str(c['이수구분'])
+            if "교양(" in ftype:
+            # "교양(문학과예술)" -> "문학과예술"만 추출
+            area_name = ftype.split('(')[1].replace(')', '')
+            selected_areas.add(area_name)
+            
+        # [영역 판정 로직] 
+        # 예: 11개 영역 중 4개 영역 필수인 경우
+        required_area_count = gen.get("required_area_count", 4) 
+        satisfied_areas = list(selected_areas)
+        pass_areas = len(satisfied_areas) >= required_area_count
+
+        # [필수 과목 체크]
+        req_fail = []
+
+        # 1. 교양 영역 미달 시 추가
+        if not pass_areas:
+            req_fail.append(f"교양 이수영역 선택 미달 (현재 {len(satisfied_areas)}/{required_area_count}개 영역 이수)")
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords_raw = known.get("advanced_keywords", [])
@@ -392,12 +419,13 @@ with tab2:
                 req_fail.append(item_name)
 
         # [6] 전공필수 과목 체크 (이수구분 확인 포함)
-        # 임상병리학과 전공필수(진단세포학 등)를 정확히 판정합니다
+        # 임상병리학과 전공필수 판정 (키워드 매칭 기반)
         for mr_course in known.get("major_required", []):
-            norm_mr = normalize_string(mr_course)
-            # 강의명이 매칭되면서 사용자가 '전공필수'로 설정했는지 확인
+            # "면역혈액" 처럼 핵심 단어만 추출 (보통 앞 4글자 혹은 전체)
+            core_keyword = normalize_string(mr_course)[:4]
+
             is_passed = any(
-                norm_mr in normalize_string(c['강의명']) and c['이수구분'] == "전공필수" 
+                (core_keyword in normalize_string(c['강의명'])) and (c['이수구분'] == "전공필수")
                 for c in final_courses
             )
             if not is_passed:
@@ -440,12 +468,19 @@ with tab2:
                     st.warning(f"📍 **전공필수 학점**이 {int(criteria['major_required'] - maj_req)}학점 부족합니다.")
                 if not pass_advanced:
                     st.warning(f"📍 **3000~4000단위(심화전공) 학점**이 {int(criteria['advanced_course'] - advanced_sum)}학점 부족합니다.")
+
                 if req_fail:
-                    st.error(f"📍 **미이수 필수 요건:** {', '.join(req_fail)}")
+                    for fail_item in req_fail:
+                        st.error(f"❌ 미이수 필수 요건: **{fail_item}**")
+
+                # 이수 중인 영역 표시 (학우들 참고용)
+                if satisfied_areas:
+                    st.info(f"✅ 현재 이수 영역: {', '.join(satisfied_areas)}")
 
         with st.expander("📊 수강 강의 상세 통계"):
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
