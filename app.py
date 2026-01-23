@@ -344,7 +344,8 @@ with tab2:
         if not pass_areas:
             req_fail.append(
                 f"교양 이수영역 선택 미달: 현재 {len(selected_areas)}/{required_area_count}개 영역 이수 "
-                f"(완료 영역: {areas_str})")
+                f"(완료 영역: {areas_str})"
+            )
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
         adv_keywords_raw = known.get("advanced_keywords", [])
@@ -484,6 +485,7 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
+
 
 
 
