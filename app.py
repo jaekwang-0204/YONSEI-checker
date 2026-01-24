@@ -128,6 +128,9 @@ def ocr_image_parsing(image_file, year, version, dept):
             match = re.search(r'^(.*?)\s+(\d+(?:\.\d+)?)(?:\s+.*)?$', line.strip())
             if match:
                 raw_name = match.group(1).strip()
+                clean_name = re.sub(r'[()\[\]{}]', '', raw_name) # 괄호류 제거
+                clean_name = re.sub(r'\s+', ' ', clean_name).strip() # 연속 공백을 하나로 축소
+                
                 # 노이즈 필터링 (학점 != 0.5*n and 학점 > 5 필터링)
                 try:
                     credit = float(match.group(2))
@@ -136,11 +139,11 @@ def ocr_image_parsing(image_file, year, version, dept):
                             continue
                 except: continue
 
-                if raw_name != "채플":
-                    if len(raw_name) < 3 or raw_name.isdigit(): continue
+                if clean_name != "채플":
+                    if len(clean_name) < 3 or clean_name.isdigit(): continue
 
-                ftype = classify_course_logic(raw_name, year, version, dept)
-                parsed_data.append({"강의명": raw_name, "학점": credit, "이수구분": ftype})
+                ftype = classify_course_logic(clean_name, year, version, dept)
+                parsed_data.append({"강의명": clean_name, "학점": credit, "이수구분": ftype})
         return parsed_data
     except: return []
 
@@ -281,7 +284,7 @@ with tab2:
         num_rows="dynamic", 
         use_container_width=True,
         column_config={
-            "강의명": st.column_config.TextColumn("강의명", help="직접 수정 가능 (예: 임상화학() -> 임상화학및실험(1)", max_chars=15, validate="^[가-힣a-zA-Z0-9\s]*$"),
+            "강의명": st.column_config.TextColumn("강의명", help="직접 수정 가능 (예: 임상화학() -> 임상화학및실험1", max_chars=15, validate="^[가-힣a-zA-Z0-9\s]*$"),
             "학점": st.column_config.NumberColumn("학점", step=0.5, format="%.1f"),
             "이수구분": st.column_config.SelectboxColumn("이수구분", options=[
                 "전공필수", "전공선택", "교양(리더십)", "교양(문학과예술)", "교양(인간과역사)", 
@@ -361,8 +364,8 @@ with tab2:
         )
 
         # 2. [NEW] 3000~4000단위(심화) 학점 계산
-        adv_keywords_raw = known.get("advanced_keywords", [])
-        norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_raw])), key=len)
+        adv_keywords_clean = known.get("advanced_keywords", [])
+        norm_adv_keywords = sorted(list(set([normalize_string(kw) for kw in adv_keywords_clean])), key=len)
 
         # 2. 모든 강의를 한 번에 순회하며 학점 합산 (중요!)
         for c in final_courses:
@@ -498,11 +501,3 @@ with tab2:
             st.dataframe(pd.DataFrame(final_courses), use_container_width=True)
     else:
         st.info("성적표 이미지를 업로드하고 분석 버튼을 눌러주세요.")
-
-
-
-
-
-
-
-
